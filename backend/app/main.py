@@ -16,7 +16,7 @@ import json
 from typing import List
 from datetime import datetime
 
-from app.api import health, monitoring, stocks, advanced_stocks, news, preferences, watchlist, banking
+from app.api import health, monitoring, stocks, advanced_stocks, news, preferences, watchlist, banking, ai_chat
 from app.core.config import settings
 from app.core.database import close_db
 from app.core.init_db import init_database
@@ -62,6 +62,7 @@ app.include_router(news.router, prefix="/api/v1", tags=["news"])
 app.include_router(preferences.router, prefix="/api/v1", tags=["preferences"])
 app.include_router(watchlist.router, prefix="/api/v1", tags=["watchlist"])
 app.include_router(banking.router, prefix="/api/v1", tags=["banking"])
+app.include_router(ai_chat.router, prefix="/api/v1/ai", tags=["ai-chat"])
 
 # WebSocket manager
 class ConnectionManager:

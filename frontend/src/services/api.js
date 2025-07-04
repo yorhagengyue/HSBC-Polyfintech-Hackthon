@@ -87,10 +87,43 @@ export const advancedAPI = {
   getRiskAnalysis: (symbol) => api.get(`/advanced/risk-analysis/${symbol}`),
 };
 
+// AI Chat APIs
+export const aiAPI = {
+  // Chat with AI
+  chat: (data) => api.post('/ai/chat', data),
+  
+  // Document analysis
+  analyzeDocuments: (documents, question) => 
+    api.post('/ai/analyze-documents', { documents, question }),
+  
+  // Upload document
+  uploadDocument: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/ai/upload-document', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  
+  // Financial analysis
+  financialAnalysis: (symbol, analysisType = 'technical', timeframe = '1d') =>
+    api.post(`/ai/financial-analysis?symbol=${symbol}&analysis_type=${analysisType}&timeframe=${timeframe}`),
+  
+  // Provider info
+  getProviderInfo: () => api.get('/ai/provider-info'),
+  
+  // Switch provider
+  switchProvider: (provider) => api.post('/ai/switch-provider', { provider }),
+  
+  // Health check
+  checkHealth: () => api.get('/ai/health'),
+};
+
 // Health check
 export const healthAPI = {
   check: () => api.get('/health'),
   checkBanking: () => bankingAPI.checkHealth(),
+  checkAI: () => aiAPI.checkHealth(),
 };
 
 export default api; 

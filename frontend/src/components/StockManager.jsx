@@ -33,6 +33,19 @@ const StockManager = ({ onStockListUpdate }) => {
         console.error('Error loading user stocks:', error);
         setUserStocks([]);
       }
+    } else {
+      // Add default stocks if none exist
+      const defaultStocks = [
+        { symbol: 'AAPL', name: 'Apple Inc.' },
+        { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+        { symbol: 'MSFT', name: 'Microsoft Corporation' },
+        { symbol: 'TSLA', name: 'Tesla, Inc.' },
+        { symbol: 'AMZN', name: 'Amazon.com, Inc.' },
+        { symbol: 'BABA', name: 'Alibaba Group Holding' }
+      ];
+      setUserStocks(defaultStocks);
+      localStorage.setItem('userStocks', JSON.stringify(defaultStocks));
+      fetchUserStockData(defaultStocks);
     }
   }, []);
 
@@ -41,14 +54,14 @@ const StockManager = ({ onStockListUpdate }) => {
     console.log('StockManager modal state changed:', showManager);
     
     if (showManager) {
-      // 简单的overflow处理
+              // Simple overflow handling
       document.body.style.overflow = 'hidden';
     } else {
-      // 恢复滚动
+              // Restore scrolling
       document.body.style.overflow = '';
     }
     
-    // 清理函数
+          // Cleanup function
     return () => {
       document.body.style.overflow = '';
     };
@@ -56,7 +69,10 @@ const StockManager = ({ onStockListUpdate }) => {
 
   // Fetch real-time data for user stocks
   const fetchUserStockData = async (stocks = userStocks) => {
+    console.log('fetchUserStockData called with stocks:', stocks);
+    
     if (stocks.length === 0) {
+      console.log('No stocks to fetch');
       setUserStockData([]);
       onStockListUpdate && onStockListUpdate([]);
       return;
@@ -65,7 +81,11 @@ const StockManager = ({ onStockListUpdate }) => {
     try {
       setIsLoading(true);
       const symbolString = stocks.map(s => s.symbol).join(',');
+      console.log('Fetching stock data for symbols:', symbolString);
+      
       const response = await stockAPI.getUserStocks(symbolString);
+      console.log('Stock data response:', response.data);
+      
       setUserStockData(response.data);
       onStockListUpdate && onStockListUpdate(response.data);
     } catch (error) {
@@ -148,7 +168,7 @@ const StockManager = ({ onStockListUpdate }) => {
 
   return (
     <div className="relative">
-      {/* 调试信息 */}
+                {/* Debug info */}
       {console.log('Rendering StockManager, showManager:', showManager)}
       
       {/* Toggle Button */}

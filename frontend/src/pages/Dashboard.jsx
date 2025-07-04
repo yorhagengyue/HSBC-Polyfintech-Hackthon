@@ -1,42 +1,44 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
-import MarketOverview from '../components/MarketOverview';
-import AlertsTimeline from '../components/AlertsTimeline';
-import RiskMeter from '../components/RiskMeter';
-import AIChat from '../components/AIChat';
-import UserPreferences from '../components/UserPreferences';
-import InsiderTradesWidget from '../components/InsiderTradesWidget';
+import { X, FileText } from 'lucide-react';
+import Navigation from '../components/Navigation';
+import DashboardView from './DashboardView';
+import PortfolioView from './PortfolioView';
+import MarketView from './MarketView';
+import AlertsView from './AlertsView';
+import AnalysisView from './AnalysisView';
+import BankingView from './BankingView';
 import StockDetails from '../components/StockDetails';
-import AlertDetails from '../components/AlertDetails';
+import AlertModal from '../components/AlertModal';
 import InsiderTradeDetails from '../components/InsiderTradeDetails';
 import ThemeToggle from '../components/ThemeToggle';
 import KeyboardShortcuts from '../components/KeyboardShortcuts';
 import StockManager from '../components/StockManager';
-import UserStocksList from '../components/UserStocksList';
-import MarketNews from '../components/MarketNews';
 import AlertSystem from '../components/AlertSystem';
-import HSBCRecommendations from '../components/HSBCRecommendations';
-import BankAccounts from '../components/BankAccounts';
-import TransactionsTable from '../components/TransactionsTable';
+import AIChat from '../components/AIChat';
+import UserPreferences from '../components/UserPreferences';
+import GlobalSearchBar from '../components/GlobalSearchBar';
 import useEventStream from '../hooks/useEventStream';
 import { stockAPI } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 
 const Dashboard = () => {
   const { toggleTheme, isDarkMode } = useTheme();
+  const [activeView, setActiveView] = useState('dashboard');
   const [userStockData, setUserStockData] = useState([]);
   const [isLoadingUserStocks, setIsLoadingUserStocks] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [alerts, setAlerts] = useState([]);
-  const [riskScore, setRiskScore] = useState(0);
-  const [wsConnected, setWsConnected] = useState(false);
+  const [wsConnected, setWsConnected] = useState(true);
   const [selectedStock, setSelectedStock] = useState(null);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [selectedTrade, setSelectedTrade] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [lastAlert, setLastAlert] = useState(null);
+  const [hasNewAlert, setHasNewAlert] = useState(false);
+  const [alerts, setAlerts] = useState([]);
+  const [riskScore, setRiskScore] = useState(0);
 
   // Handle user stock list updates from StockManager
   const handleUserStockListUpdate = useCallback((stocks) => {
@@ -184,14 +186,19 @@ const Dashboard = () => {
         window.location.reload();
       } else if (isCtrl && event.key.toLowerCase() === 'c') {
         event.preventDefault();
-        // Focus AI chat (this would need to be implemented in AIChat component)
-        console.log('Open AI chat');
+        setSelectedStock(null);
+        setSelectedAlert(null);
+        setSelectedTrade(null);
+        setSelectedAccount(null);
+        setSelectedTransaction(null);
+        setShowShortcuts(false);
+        setShowPreferences(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showShortcuts, isDarkMode, toggleTheme]);
+  }, [showShortcuts, showPreferences, isDarkMode, toggleTheme]);
 
   // Load initial sample alerts
   useEffect(() => {
@@ -263,6 +270,19 @@ const Dashboard = () => {
     setSelectedTransaction(transaction);
   };
 
+  // Mock alert for testing
+  useEffect(() => {
+    const mockAlert = {
+      id: 1,
+      title: 'Stock Price Alert',
+      message: 'AAPL has dropped 5% in the last hour',
+      severity: 'high',
+      timestamp: new Date().toISOString(),
+    };
+    setLastAlert(mockAlert);
+    setHasNewAlert(true);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gradient-to-tr dark:from-gray-950 dark:via-gray-900 dark:to-slate-900 light:bg-gradient-to-br light:from-gray-100 light:via-gray-50 light:to-gray-200">
       {/* Background gradient spots for visual interest */}
@@ -293,6 +313,22 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
+              {/* Global Search Bar */}
+              <div className="hidden md:block flex-1 max-w-xl mx-4">
+                <GlobalSearchBar 
+                  onSearch={(result) => {
+                    if (result.type === 'stock') {
+                      setSelectedStock(result.symbol);
+                    } else if (result.type === 'alert') {
+                      // Find and select the alert
+                      const alert = alerts.find(a => a.title === result.title);
+                      if (alert) setSelectedAlert(alert);
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Connection Indicator */}
               <motion.div 
                 className="flex items-center space-x-2"
                 initial={{ opacity: 0 }}
@@ -319,7 +355,7 @@ const Dashboard = () => {
                   }}
                 />
                 <motion.span 
-                  className={`text-xs transition-colors duration-300 ${
+                  className={`text-xs transition-colors duration-300 hidden lg:inline ${
                     wsConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                   }`}
                   animate={{ opacity: [0.7, 1, 0.7] }}
@@ -340,128 +376,118 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* Main Content - Full Width Responsive Grid */}
-      <main className="w-full max-w-none px-8 py-8">
-        {/* Scrollable container for ultra-wide screens */}
-        <div className="overflow-x-auto hide-scrollbar">
-          <section className="grid gap-8 
-                            grid-cols-1 
-                            md:grid-cols-2 
-                            xl:grid-cols-3 
-                            2xl:grid-cols-[repeat(auto-fill,minmax(360px,1fr))]
-                            3xl:grid-cols-[repeat(auto-fill,minmax(400px,1fr))]
-                            grid-flow-dense
-                            auto-rows-min
-                            min-w-full">
-            
-            {/* Market Overview - spans 2 columns on larger screens */}
-            <motion.div
-              className="md:col-span-2 xl:col-span-2 2xl:col-span-2 min-w-[320px]"
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-            >
-              <MarketOverview />
-            </motion.div>
+      {/* Navigation */}
+      <Navigation activeView={activeView} onViewChange={setActiveView} />
 
-            {/* Risk Meter - important, place early */}
+      {/* Main Content */}
+      <main className="min-h-[calc(100vh-128px)]">
+        <AnimatePresence mode="wait">
+          {activeView === 'dashboard' && (
             <motion.div
-              initial={{ x: 50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="h-full min-w-[320px]"
+              key="dashboard"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
             >
-              <RiskMeter riskScore={riskScore} onRiskChange={setRiskScore} />
-            </motion.div>
-
-            {/* User Custom Stocks - spans full width on xl+ */}
-            <motion.div
-              className="md:col-span-2 xl:col-span-3 2xl:col-span-2 min-w-[320px]"
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              <UserStocksList 
+              <DashboardView 
                 userStockData={userStockData}
-                onRefresh={refreshUserStocks}
-                isLoading={isLoadingUserStocks}
-                onStockSelect={setSelectedStock}
-                onStartMonitoring={handleStartMonitoring}
+                alerts={alerts}
+                riskScore={riskScore}
+                onViewChange={setActiveView}
               />
             </motion.div>
-
-            {/* Alerts Timeline */}
+          )}
+          
+          {activeView === 'portfolio' && (
             <motion.div
-              initial={{ x: 50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="md:col-span-1 xl:col-span-1 2xl:col-span-1 min-h-[400px] xl:min-h-[600px] min-w-[320px]"
+              key="portfolio"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
             >
-              <AlertsTimeline 
-                alerts={alerts} 
+              <PortfolioView 
+                userStockData={userStockData}
+                onStockSelect={setSelectedStock}
+                onRemoveStock={(symbol) => {
+                  // Remove stock logic here
+                  console.log('Remove stock:', symbol);
+                }}
+                onReorderStocks={(newOrder) => {
+                  // Reorder logic here
+                  setUserStockData(newOrder);
+                }}
+                onStockListUpdate={handleUserStockListUpdate}
+              />
+            </motion.div>
+          )}
+          
+          {activeView === 'market' && (
+            <motion.div
+              key="market"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <MarketView 
+                onStockSelect={setSelectedStock}
+                onTradeClick={handleTradeClick}
+              />
+            </motion.div>
+          )}
+          
+          {activeView === 'alerts' && (
+            <motion.div
+              key="alerts"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <AlertsView 
+                alerts={alerts}
+                riskScore={riskScore}
+                onRiskChange={setRiskScore}
                 onClearAlerts={handleClearAlerts}
                 onAlertClick={handleAlertClick}
+                userStockData={userStockData}
               />
             </motion.div>
-
-            {/* Insider Trades - spans 2 columns */}
+          )}
+          
+          {activeView === 'analysis' && (
             <motion.div
-              className="md:col-span-2 xl:col-span-2 2xl:col-span-2 min-w-[320px]"
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.5 }}
+              key="analysis"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
             >
-              <InsiderTradesWidget onTradeClick={handleTradeClick} />
+              <AnalysisView 
+                userStockData={userStockData}
+                onStockSelect={setSelectedStock}
+              />
             </motion.div>
-            
-            {/* Additional cards for 4K displays */}
-            {/* Market News Widget - no longer a placeholder */}
+          )}
+          
+          {activeView === 'banking' && (
             <motion.div
-              className="md:col-span-2 xl:col-span-2 2xl:col-span-2 min-w-[320px]"
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.6 }}
+              key="banking"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
             >
-              <MarketNews />
-            </motion.div>
-
-            {/* HSBC Bank Accounts */}
-            <motion.div
-              className="md:col-span-2 xl:col-span-2 2xl:col-span-2 min-w-[320px]"
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.7 }}
-            >
-              <BankAccounts 
+              <BankingView 
                 onAccountSelect={handleAccountSelect}
-                selectedAccountId={selectedAccount?.account_id}
-              />
-            </motion.div>
-
-            {/* Transactions Table */}
-            <motion.div
-              className="md:col-span-2 xl:col-span-3 2xl:col-span-3 min-w-[320px]"
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.8 }}
-            >
-              <TransactionsTable 
-                account={selectedAccount}
+                selectedAccount={selectedAccount}
                 onTransactionSelect={handleTransactionSelect}
               />
             </motion.div>
-
-            {/* HSBC Recommendations - only shows in Low Risk Mode */}
-            <motion.div
-              className="md:col-span-2 xl:col-span-3 2xl:col-span-3 min-w-[320px]"
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.9 }}
-            >
-              <HSBCRecommendations />
-            </motion.div>
-          </section>
-        </div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* Alert System - Fixed position overlay */}
@@ -477,12 +503,13 @@ const Dashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* Alert Details Modal */}
+      {/* Alert Modal - Enhanced */}
       <AnimatePresence>
         {selectedAlert && (
-          <AlertDetails 
+          <AlertModal 
             alert={selectedAlert} 
-            onClose={() => setSelectedAlert(null)} 
+            onClose={() => setSelectedAlert(null)}
+            riskScore={riskScore}
           />
         )}
       </AnimatePresence>
@@ -572,13 +599,30 @@ const Dashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* Floating Action Buttons */}
-      <AIChat alerts={alerts} />
+      {/* Preferences */}
       <UserPreferences 
         isOpen={showPreferences} 
         onClose={() => setShowPreferences(false)} 
       />
       
+      {/* Floating Action Buttons */}
+      {/* PDF Report Button */}
+      <motion.button
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => {
+          // Generate PDF report
+          console.log('Generating PDF report...');
+          // This would integrate with a PDF generation library
+        }}
+        className="fixed bottom-40 right-4 w-14 h-14 bg-hsbc-red hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
+        title="Download PDF Report"
+      >
+        <FileText className="w-6 h-6" />
+      </motion.button>
+
       {/* Preferences Toggle Button */}
       <motion.button
         initial={{ scale: 0 }}
@@ -595,9 +639,17 @@ const Dashboard = () => {
       </motion.button>
 
       {/* Keyboard Shortcuts Modal */}
-      <KeyboardShortcuts 
-        isOpen={showShortcuts} 
-        onClose={() => setShowShortcuts(false)} 
+      <AnimatePresence>
+        {showShortcuts && (
+          <KeyboardShortcuts onClose={() => setShowShortcuts(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Global AI Chat Component - Always Available */}
+      <AIChat 
+        lastAlert={lastAlert}
+        hasNewAlert={hasNewAlert}
+        userStocks={userStockData}
       />
     </div>
   );

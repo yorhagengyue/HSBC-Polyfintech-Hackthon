@@ -41,6 +41,16 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "mistral:7b"
     
+    # AI/LLM Configuration  
+    LLM_PROVIDER: str = "ollama"  # gemini, ollama, local
+    USE_LOCAL_LLM: bool = False
+    
+    # Gemini AI Studio Configuration
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-2.0-flash-exp"
+    GEMINI_CONTEXT_CACHE_TTL: int = 7200  # 2 hours
+    GEMINI_MAX_TOKENS: int = 1000000  # 1M token context
+    
     # News API
     NEWS_API_KEY: Optional[str] = None
     
