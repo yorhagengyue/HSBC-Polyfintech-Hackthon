@@ -1,0 +1,96 @@
+import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:8000/api/v1';
+
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    'X-User-ID': 'demo_user', // Simple user auth for demo
+  },
+});
+
+// Stock APIs
+export const stockAPI = {
+  getStockInfo: (symbol) => api.get(`/stock/${symbol}`),
+  getRealtimePrice: (symbol) => api.get(`/stock/${symbol}/price`),
+  getStockHistory: (symbol, period = '1mo', interval = '1d') => 
+    api.get(`/stock/${symbol}/history?period=${period}&interval=${interval}`),
+  getIndexPrices: () => api.get('/index-prices'),
+  
+  // New search and user stock APIs
+  searchStocks: (query) => api.get(`/search?query=${encodeURIComponent(query)}`),
+  getUserStocks: (symbols) => api.get(`/user-stocks?symbols=${encodeURIComponent(symbols)}`),
+  
+  // Monitoring
+  startMonitoring: (data) => api.post('/monitoring/start', data),
+  stopMonitoring: (symbol) => api.delete(`/monitoring/stop/${symbol}`),
+  getMonitoringStatus: () => api.get('/monitoring/status'),
+  getCachedPrice: (symbol) => api.get(`/monitoring/cache/${symbol}`),
+  
+  // News APIs
+  getMarketNews: (category = 'business') => api.get(`/news/market?category=${category}`),
+  searchNews: (query) => api.get(`/news/search?query=${encodeURIComponent(query)}`),
+  getSymbolNews: (symbol) => api.get(`/news/symbol/${symbol}`),
+  addNewsMonitoring: (symbol, keywords) => api.post(`/news/monitor/${symbol}`, { keywords }),
+  removeNewsMonitoring: (symbol) => api.delete(`/news/monitor/${symbol}`),
+  getMonitoredSymbols: () => api.get('/news/monitor/symbols'),
+  getNewsAlerts: () => api.get('/news/alerts'),
+};
+
+// Banking APIs - New HSBC Integration
+export const bankingAPI = {
+  // Health and status
+  checkHealth: () => api.get('/banking/health'),
+  
+  // Accounts
+  getAccounts: (forceRefresh = false) => 
+    api.get(`/banking/accounts?force_refresh=${forceRefresh}`),
+  
+  // Balances
+  getAccountBalances: (accountId, forceRefresh = false) => 
+    api.get(`/banking/accounts/${accountId}/balances?force_refresh=${forceRefresh}`),
+  
+  // Transactions
+  getAccountTransactions: (accountId, params = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.fromDate) queryParams.append('from_date', params.fromDate);
+    if (params.toDate) queryParams.append('to_date', params.toDate);
+    if (params.limit) queryParams.append('limit', params.limit);
+    if (params.forceRefresh) queryParams.append('force_refresh', params.forceRefresh);
+    
+    const queryString = queryParams.toString();
+    return api.get(`/banking/accounts/${accountId}/transactions${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  // Sync all banking data
+  syncAllData: () => api.post('/banking/sync'),
+  
+  // Analytics helpers (to be implemented later)
+  getBankingSummary: () => api.get('/banking/summary'),
+  getSpendingAnalysis: (period = 'last_30_days') => 
+    api.get(`/banking/analysis/spending?period=${period}`),
+  searchTransactions: (query, filters = {}) => 
+    api.post('/banking/transactions/search', { query, ...filters }),
+};
+
+// Advanced APIs
+export const advancedAPI = {
+  getInsiderTrades: (symbol = null) => 
+    api.get(`/advanced/insider-trades${symbol ? `?symbol=${symbol}` : ''}`),
+  getTrendingStocks: () => api.get('/advanced/trending'),
+  getOptionsChain: (symbol) => api.get(`/advanced/options/${symbol}`),
+  getMarketSummary: () => api.get('/advanced/market-summary'),
+  getStatistics: (symbol) => api.get(`/advanced/statistics/${symbol}`),
+  getEnhancedQuote: (symbol) => api.get(`/advanced/quote/${symbol}`),
+  getRiskAnalysis: (symbol) => api.get(`/advanced/risk-analysis/${symbol}`),
+};
+
+// Health check
+export const healthAPI = {
+  check: () => api.get('/health'),
+  checkBanking: () => bankingAPI.checkHealth(),
+};
+
+export default api; 
