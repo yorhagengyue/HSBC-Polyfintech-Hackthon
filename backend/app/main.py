@@ -16,7 +16,7 @@ import json
 from typing import List
 from datetime import datetime
 
-from app.api import health, monitoring, stocks, advanced_stocks, news, preferences, watchlist, banking, ai_chat
+from app.api import health, monitoring, stocks, advanced_stocks, news, preferences, watchlist, banking, ai_chat, crypto, ai_template
 from app.core.config import settings
 from app.core.database import close_db
 from app.core.init_db import init_database
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     print("🏦 HSBC API client configured")
     print(f"📋 Client ID: {settings.HSBC_CLIENT_ID}")
     print(f"🔑 KID: {settings.HSBC_KID}")
-    print(f"🏢 Organization: {settings.HSBC_ORG_ID}")
+    print(f"🏢 Organization: {settings.HSBC_ORGANIZATION_ID}")
     yield
     # Shutdown
     print("👋 Financial Alarm Clock API shutting down...")
@@ -63,6 +63,8 @@ app.include_router(preferences.router, prefix="/api/v1", tags=["preferences"])
 app.include_router(watchlist.router, prefix="/api/v1", tags=["watchlist"])
 app.include_router(banking.router, prefix="/api/v1", tags=["banking"])
 app.include_router(ai_chat.router, prefix="/api/v1/ai", tags=["ai-chat"])
+app.include_router(crypto.router, prefix="/api/v1", tags=["crypto"])
+app.include_router(ai_template.router, prefix="/api/v1/ai/template", tags=["ai-template"])
 
 # WebSocket manager
 class ConnectionManager:
@@ -106,8 +108,8 @@ async def root():
         "hsbc_integration": {
             "status": "configured",
             "client_id": settings.HSBC_CLIENT_ID,
-            "organization": settings.HSBC_ORG_ID,
-            "sandbox_url": settings.HSBC_API_BASE_URL
+            "organization": settings.HSBC_ORGANIZATION_ID,
+            "sandbox_url": settings.HSBC_BASE_URL
         }
     }
 

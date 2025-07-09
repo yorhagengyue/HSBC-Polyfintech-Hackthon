@@ -8,8 +8,6 @@ import {
 import { stockAPI } from '../services/api';
 
 const StockManager = ({ onStockListUpdate }) => {
-  console.log('StockManager component rendered');
-  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [userStocks, setUserStocks] = useState([]);
@@ -18,8 +16,6 @@ const StockManager = ({ onStockListUpdate }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showManager, setShowManager] = useState(false);
   const [message, setMessage] = useState(null);
-  
-  console.log('StockManager state initialized, showManager:', showManager);
 
   // Load user stocks from localStorage on component mount
   useEffect(() => {
@@ -30,7 +26,6 @@ const StockManager = ({ onStockListUpdate }) => {
         setUserStocks(stocks);
         fetchUserStockData(stocks);
       } catch (error) {
-        console.error('Error loading user stocks:', error);
         setUserStocks([]);
       }
     } else {
@@ -51,17 +46,15 @@ const StockManager = ({ onStockListUpdate }) => {
 
   // Prevent body scroll when modal is open
   useEffect(() => {
-    console.log('StockManager modal state changed:', showManager);
-    
     if (showManager) {
-              // Simple overflow handling
+      // Simple overflow handling
       document.body.style.overflow = 'hidden';
     } else {
-              // Restore scrolling
+      // Restore scrolling
       document.body.style.overflow = '';
     }
     
-          // Cleanup function
+    // Cleanup function
     return () => {
       document.body.style.overflow = '';
     };
@@ -69,10 +62,7 @@ const StockManager = ({ onStockListUpdate }) => {
 
   // Fetch real-time data for user stocks
   const fetchUserStockData = async (stocks = userStocks) => {
-    console.log('fetchUserStockData called with stocks:', stocks);
-    
     if (stocks.length === 0) {
-      console.log('No stocks to fetch');
       setUserStockData([]);
       onStockListUpdate && onStockListUpdate([]);
       return;
@@ -81,15 +71,12 @@ const StockManager = ({ onStockListUpdate }) => {
     try {
       setIsLoading(true);
       const symbolString = stocks.map(s => s.symbol).join(',');
-      console.log('Fetching stock data for symbols:', symbolString);
       
       const response = await stockAPI.getUserStocks(symbolString);
-      console.log('Stock data response:', response.data);
       
       setUserStockData(response.data);
       onStockListUpdate && onStockListUpdate(response.data);
     } catch (error) {
-      console.error('Error fetching user stock data:', error);
       setMessage({ type: 'error', text: 'Failed to fetch stock data' });
       setTimeout(() => setMessage(null), 3000);
     } finally {
@@ -109,7 +96,6 @@ const StockManager = ({ onStockListUpdate }) => {
       const response = await stockAPI.searchStocks(query);
       setSearchResults(response.data);
     } catch (error) {
-      console.error('Error searching stocks:', error);
       setMessage({ type: 'error', text: 'Search failed. Please try again.' });
       setTimeout(() => setMessage(null), 3000);
     } finally {
@@ -168,19 +154,13 @@ const StockManager = ({ onStockListUpdate }) => {
 
   return (
     <div className="relative">
-                {/* Debug info */}
-      {console.log('Rendering StockManager, showManager:', showManager)}
-      
       {/* Toggle Button */}
       <button
         onClick={() => {
-          console.log('Manage Stocks button clicked!');
-          console.log('Current showManager state:', showManager);
           try {
             setShowManager(!showManager);
-            console.log('Setting showManager to:', !showManager);
           } catch (error) {
-            console.error('Error in setShowManager:', error);
+            // Error setting showManager state
           }
         }}
         className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors shadow-lg hover:scale-105 active:scale-95"

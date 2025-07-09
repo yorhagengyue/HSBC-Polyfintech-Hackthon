@@ -82,13 +82,26 @@ class TransactionResponse(BaseModel):
             values['is_debit'] = credit_debit == "Debit"
             values['signed_amount'] = abs(amount) if values['is_credit'] else -abs(amount)
         else:
-            # Handle SQLAlchemy object
+            # Handle SQLAlchemy object - convert to dict first
             credit_debit = getattr(values, 'credit_debit_indicator', '')
             amount = getattr(values, 'amount', 0)
             
-            values.is_credit = credit_debit == "Credit"
-            values.is_debit = credit_debit == "Debit" 
-            values.signed_amount = abs(amount) if values.is_credit else -abs(amount)
+            # Create dict with computed values
+            dict_values = {
+                'is_credit': credit_debit == "Credit",
+                'is_debit': credit_debit == "Debit",
+                'signed_amount': abs(amount) if credit_debit == "Credit" else -abs(amount)
+            }
+            
+            # Add original attributes
+            for attr in ['id', 'transaction_id', 'transaction_reference', 'amount', 'currency', 
+                        'credit_debit_indicator', 'status', 'booking_datetime', 'value_datetime', 
+                        'description', 'merchant_name', 'merchant_category_code', 'balance_after',
+                        'category', 'subcategory', 'created_at', 'updated_at']:
+                if hasattr(values, attr):
+                    dict_values[attr] = getattr(values, attr)
+            
+            values = dict_values
         
         return values
     

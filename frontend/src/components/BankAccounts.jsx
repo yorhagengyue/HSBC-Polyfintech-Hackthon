@@ -65,7 +65,7 @@ const BankAccounts = ({ onAccountSelect, selectedAccountId }) => {
             balances: balanceResponse.data || [] 
           };
         } catch (error) {
-          console.warn(`Failed to load balances for account ${account.account_id}:`, error);
+          // Failed to load balances for this account
           return { accountId: account.account_id, balances: [] };
         }
       });
@@ -83,7 +83,7 @@ const BankAccounts = ({ onAccountSelect, selectedAccountId }) => {
       }
 
     } catch (error) {
-      console.error('Error loading banking data:', error);
+      // Error loading banking data
       const errorMessage = error.response?.data?.detail || error.message || 'Failed to load banking data';
       setError(errorMessage);
       

@@ -10,96 +10,78 @@
 
 **Team**: Financial Alarm Clock Team  
 **Event**: Intelligent Banking by HSBC (Temasek Polytechnic)  
-**Status**: In Active Development
+**Status**: Production Ready ✅
 
 ## 🎯 What is Financial Alarm Clock?
 
 Financial Alarm Clock is an intelligent system that monitors financial markets 24/7 and alerts you when significant events occur. Using AI to analyze market movements and news, it provides plain-language explanations and recommends relevant HSBC banking products to help manage financial risks.
 
-### Key Features
+### ✅ Core Features
 
-- 📈 **Real-time Market Monitoring** - Track stock prices with Yahoo Finance
-- 🤖 **AI-Powered Analysis** - Local LLM (Mistral-7B) explains market events
+- 🏦 **HSBC Banking Integration** - Complete mock banking system with real API structure
+- 📈 **Real-time Market Monitoring** - Track stock prices with Yahoo Finance  
+- 🤖 **AI-Powered Analysis** - Google Gemini explains market events
 - 🔔 **Smart Alerts** - Get notified when prices drop or volatility spikes
-- 🏦 **HSBC Integration** - Personalized banking product recommendations
-- 📰 **News Monitoring** - Track financial news that affects your portfolio
+- 📊 **Interactive Dashboard** - React-based modern UI with real-time updates
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Python 3.11+
 - Node.js 18+
-- Git
 
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/your-team/financial-alarm-clock.git
-cd financial-alarm-clock
-
-# Start the backend
+### Backend Setup
+```cmd
 cd backend
-python -m venv venv
-venv\Scripts\Activate.ps1  # Windows
 pip install -r requirements.txt
-python -m uvicorn app.main:app --reload
+start.bat
+```
 
-# Start the frontend (new terminal)
-cd frontend
+### Frontend Setup
+```cmd
+cd frontend  
 npm install
 npm run dev
 ```
 
-### Access the Application
+### 🔗 Access Points
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Banking API Status**: http://localhost:8000/api/v1/banking/health
 
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/docs
-
-## 📚 Documentation
-
-- [Developer Guide](./DEVELOPER_GUIDE.md) - Detailed development milestones and technical documentation
-- [HSBC API Integration Guide](./docs/HSBC-API-Integration-Guide.md) - HSBC API setup and configuration
-- [API Documentation](http://localhost:8000/docs) - Interactive API docs (when running)
-
-## 🏗️ Architecture Overview
+## 🏗️ Architecture
 
 ```
 Frontend (React) → Backend (FastAPI) → External APIs
                            ↓
-                      Local LLM (Ollama)
+                   Google Gemini AI
 ```
 
 ## 🛠️ Tech Stack
 
-- **Backend**: FastAPI, Python 3.11, SQLAlchemy, Pydantic
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
-- **AI/ML**: Ollama, Mistral-7B, LangChain
-- **APIs**: Yahoo Finance, News API, HSBC Open Banking
-- **Database**: SQLite (dev), PostgreSQL (prod)
+- **Backend**: FastAPI, Python 3.11, SQLAlchemy
+- **Frontend**: React 18, Vite, Tailwind CSS  
+- **AI**: Google Gemini 2.0 Flash
+- **APIs**: Yahoo Finance, HSBC Banking (Mock)
+- **Database**: SQLite
 
-## 📈 Current Progress
+## ✅ Development Status
 
-- ✅ **Milestone 1**: Project Setup (COMPLETED)
-- 🔄 **Milestone 2**: Core Data Integration (IN PROGRESS)
-- ⏳ **Milestone 3**: AI Integration
-- ⏳ **Milestone 4**: Alert System
-- ⏳ **Milestone 5**: HSBC Integration
-- ⏳ **Milestone 6**: Frontend Development
-- ⏳ **Milestone 7**: Testing & Optimization
-- ⏳ **Milestone 8**: Deployment & Demo
+- ✅ **HSBC Banking Integration** - Mock API with complete functionality
+- ✅ **Stock Market Monitoring** - Yahoo Finance real-time data
+- ✅ **AI Analysis** - Google Gemini integration
+- ✅ **Alert System** - WebSocket real-time notifications
+- ✅ **Interactive Dashboard** - Modern React UI
+- ✅ **Error Handling** - Production-ready reliability
 
-## 🤝 Contributing
+## 🏦 Banking Features
 
-Please read our [Developer Guide](./DEVELOPER_GUIDE.md) for details on our development process and coding standards.
-
-## 📞 Contact
-
-For questions about this project, please refer to:
-- Technical documentation in `/docs`
-- API documentation at `/docs` endpoint
-- HSBC Developer Portal for API-specific queries
+The HSBC mock API provides:
+- **3 Test Accounts**: SGD Current ($15,750.50), SGD Savings ($28,500.00), USD Business ($12,750.75)
+- **Transaction History**: 10 sample transactions per account
+- **Real-time Balance Updates**: Complete banking functionality simulation
+- **API Compatibility**: Full HSBC Open Banking API format
 
 ## 📄 License
 

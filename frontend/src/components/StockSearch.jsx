@@ -28,7 +28,6 @@ const StockSearch = ({ onSelect, existingSymbols = [] }) => {
         const filteredResults = results.filter(stock => !existingSymbols.includes(stock.symbol));
         setSearchResults(filteredResults);
       } catch (error) {
-        console.error('Search error:', error);
         setSearchResults([]);
       } finally {
         setIsSearching(false);
@@ -82,8 +81,6 @@ const StockSearch = ({ onSelect, existingSymbols = [] }) => {
   };
 
   const handleSelectStock = (stock) => {
-    console.log('StockSearch: handleSelectStock called with:', stock);
-    console.log('StockSearch: calling onSelect with:', stock.symbol);
     onSelect(stock.symbol);
     setSearchTerm('');
     setIsOpen(false);

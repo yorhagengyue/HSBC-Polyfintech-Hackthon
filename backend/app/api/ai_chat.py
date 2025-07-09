@@ -10,6 +10,7 @@ import json
 import logging
 
 from app.services.llm_provider import llm_manager, LLMResponse
+from app.services.crypto_data_service import crypto_service
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ class ChatRequest(BaseModel):
     message: str
     context_id: Optional[str] = None
     conversation_history: Optional[List[Dict[str, str]]] = []
+    analysis_mode: Optional[str] = "simple"  # "simple" or "deep"
+    context: Optional[Dict[str, Any]] = None  # Additional context like news articles
 
 class DocumentAnalysisRequest(BaseModel):
     documents: List[str]
@@ -34,19 +37,102 @@ async def chat_with_ai(request: ChatRequest) -> JSONResponse:
     Supports conversation history and context
     """
     try:
-        logger.info(f"AI chat request: {request.message[:50]}...")
+        logger.info(f"AI chat request: {request.message[:50]}... Mode: {request.analysis_mode}")
         
-        # Build full prompt (including conversation history)
-        full_prompt = request.message
+        # Check if crypto data is needed
+        crypto_keywords = ["crypto", "bitcoin", "btc", "ethereum", "eth", "cryptocurrency", "fear greed"]
+        needs_crypto_data = any(keyword in request.message.lower() for keyword in crypto_keywords)
+        
+        crypto_context = ""
+        if needs_crypto_data:
+            try:
+                # Fetch real-time crypto data
+                market_data = await crypto_service.get_market_overview()
+                
+                # Format crypto data for prompt
+                if "error" not in market_data:
+                    crypto_context = "\n\n=== REAL-TIME CRYPTO DATA ===\n"
+                    
+                    # Add prices
+                    if "prices" in market_data:
+                        for coin, data in market_data["prices"].items():
+                            if "error" not in data:
+                                crypto_context += f"\n{coin.upper()}:"
+                                crypto_context += f"\n  Price: ${data['price']:,.2f} [source: {data['source']}]"
+                                crypto_context += f"\n  24h Change: {data['change_24h']:.2f}%"
+                                crypto_context += f"\n  Market Cap: ${data['market_cap']:,.0f}"
+                    
+                    # Add fear greed index
+                    if "fear_greed_index" in market_data:
+                        fgi = market_data["fear_greed_index"]
+                        if "error" not in fgi:
+                            crypto_context += f"\n\nFear & Greed Index: {fgi['value']} ({fgi['classification']}) [source: {fgi['source']}]"
+                    
+                    crypto_context += "\n\n"
+            except Exception as e:
+                logger.error(f"Failed to fetch crypto data: {e}")
+        
+        # Extract user risk profile if provided
+        user_risk_profile = "medium"  # default
+        if request.context and isinstance(request.context, dict):
+            user_risk_profile = request.context.get('user_risk_profile', 'medium')
+        
+        # Build prompt based on analysis mode
+        if request.analysis_mode == "deep":
+            prompt = f"""You are a senior financial analyst providing COMPREHENSIVE, DETAILED analysis.
+USER RISK PROFILE: {user_risk_profile}
+{crypto_context}
+USER QUERY: {request.message}
+
+REQUIREMENTS:
+- Provide IN-DEPTH analysis with specific data points
+- Include technical analysis where relevant
+- Consider multiple perspectives and scenarios
+- Provide detailed risk assessment based on user's {user_risk_profile} risk profile
+- Suggest specific HSBC products or services where applicable
+- Include actionable recommendations with priorities
+- Use professional financial terminology
+
+Structure your response with clear sections."""
+        else:
+            # Simple mode - concise response
+            prompt = f"""You are a professional financial advisor providing QUICK, CONCISE insights.
+USER RISK PROFILE: {user_risk_profile}
+{crypto_context}
+USER QUERY: {request.message}
+
+REQUIREMENTS:
+- Provide a BRIEF response (2-3 paragraphs maximum)
+- Focus on KEY POINTS only
+- Use bullet points for clarity
+- Consider user's {user_risk_profile} risk tolerance
+- Include a one-line actionable recommendation
+
+Keep it SHORT and ACTIONABLE."""
+        
+        # Add context if provided (e.g., news articles)
+        if request.context:
+            if request.context.get('news_articles'):
+                articles_info = "\n".join([
+                    f"- {article.get('title', 'No title')}"
+                    for article in request.context['news_articles']
+                ])
+                prompt += f"\n\nNEWS CONTEXT:\n{articles_info}"
+        
+        # Add conversation history
         if request.conversation_history:
             history_text = "\n".join([
                 f"User: {item['user']}\nAI: {item['assistant']}" 
                 for item in request.conversation_history[-3:]  # Keep only last 3 conversations
             ])
-            full_prompt = f"Conversation History:\n{history_text}\n\nCurrent Question: {request.message}"
+            prompt = f"Conversation History:\n{history_text}\n\n{prompt}"
         
         # Call LLM
-        response = await llm_manager.chat(full_prompt, request.context_id)
+        response = await llm_manager.chat(prompt, request.context_id)
+        
+        # Add suggestion for deep analysis if in simple mode
+        if request.analysis_mode == "simple":
+            response.content += "\n\n💡 **Want deeper insights?** Click 'Deep Analysis' for comprehensive market analysis with source verification."
         
         return JSONResponse({
             "success": True,
@@ -55,7 +141,8 @@ async def chat_with_ai(request: ChatRequest) -> JSONResponse:
             "model": response.model,
             "context_id": response.context_id,
             "tokens_used": response.tokens_used,
-            "cost_estimate": response.cost_estimate
+            "cost_estimate": response.cost_estimate,
+            "analysis_mode": request.analysis_mode
         })
         
     except Exception as e:

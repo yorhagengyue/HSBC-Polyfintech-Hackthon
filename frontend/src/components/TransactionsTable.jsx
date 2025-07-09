@@ -70,7 +70,7 @@ const TransactionsTable = ({ account, onTransactionSelect }) => {
       }
 
     } catch (error) {
-      console.error('Error loading transactions:', error);
+      // Error loading transactions
       const errorMessage = error.response?.data?.detail || error.message || 'Failed to load transactions';
       setError(errorMessage);
       

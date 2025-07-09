@@ -169,13 +169,13 @@ const MarketOverview = () => {
         return response.data;
       }
       // If not array, return empty array or try to convert
-      console.warn('Index prices API did not return an array:', response.data);
+      // Index prices API did not return an array
       return [];
     },
     refetchInterval: 30000, // Refresh every 30 seconds
     retry: 2,
     onError: (error) => {
-      console.error('Error fetching index prices:', error);
+      // Error fetching index prices
     }
   });
 
@@ -210,7 +210,7 @@ const MarketOverview = () => {
 
   // Error handling
   if (error) {
-    console.error('MarketOverview error:', error);
+    // MarketOverview error occurred
   }
 
   // Default to empty array if marketData is not an array

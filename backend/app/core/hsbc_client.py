@@ -34,16 +34,37 @@ class HSBCClient:
     """HSBC Open Banking API Client with OAuth 2.0 and mTLS support"""
     
     def __init__(self):
-        self.base_url = settings.HSBC_API_BASE_URL
         self.client_id = settings.HSBC_CLIENT_ID
         self.kid = settings.HSBC_KID
-        self.org_id = settings.HSBC_ORG_ID
+        self.base_url = settings.HSBC_BASE_URL
+        self.timeout = httpx.Timeout(30.0)
+        self.org_id = settings.HSBC_ORGANIZATION_ID
+        self.redirect_uri = settings.HSBC_REDIRECT_URI
         
         # Certificate paths
         self.transport_cert_path = settings.HSBC_TRANSPORT_CERT_PATH
         self.transport_key_path = settings.HSBC_TRANSPORT_KEY_PATH
         self.signing_cert_path = settings.HSBC_SIGNING_CERT_PATH
         self.signing_key_path = settings.HSBC_SIGNING_KEY_PATH
+        
+        # JWT settings
+        self.jwt_algorithm = settings.JWT_ALGORITHM
+        self.jwt_expiration_hours = settings.JWT_EXPIRATION_HOURS
+        
+        # Log configuration details
+        logger.info("HSBC Client Configuration:")
+        for key, value in [
+            ('HSBC_CLIENT_ID', self.client_id),
+            ('HSBC_KID', self.kid),
+            ('HSBC_BASE_URL', self.base_url),
+            ('HSBC_ORGANIZATION_ID', self.org_id),
+            ('HSBC_REDIRECT_URI', self.redirect_uri),
+            ('HSBC_TRANSPORT_CERT_PATH', self.transport_cert_path),
+            ('HSBC_TRANSPORT_KEY_PATH', self.transport_key_path),
+            ('HSBC_SIGNING_CERT_PATH', self.signing_cert_path),
+            ('HSBC_SIGNING_KEY_PATH', self.signing_key_path)
+        ]:
+            logger.info(f"  {key}: {value}")
         
         # Token cache (60 minutes TTL)
         self.token_cache = TTLCache(maxsize=100, ttl=3600)
@@ -57,7 +78,7 @@ class HSBCClient:
         required_settings = [
             ('HSBC_CLIENT_ID', self.client_id),
             ('HSBC_KID', self.kid),
-            ('HSBC_API_BASE_URL', self.base_url),
+            ('HSBC_BASE_URL', self.base_url),
         ]
         
         missing = [name for name, value in required_settings if not value]
@@ -80,26 +101,49 @@ class HSBCClient:
         if self._http_client is None:
             # mTLS configuration
             cert = None
-            if self.transport_cert_path and self.transport_key_path:
-                cert_path = Path(self.transport_cert_path)
-                key_path = Path(self.transport_key_path)
-                
-                if cert_path.exists() and key_path.exists():
-                    cert = (str(cert_path), str(key_path))
-                    logger.info("mTLS certificates configured")
-                else:
-                    logger.warning("mTLS certificate files not found, proceeding without mTLS")
+            try:
+                if self.transport_cert_path and self.transport_key_path:
+                    cert_path = Path(self.transport_cert_path)
+                    key_path = Path(self.transport_key_path)
+                    
+                    if cert_path.exists() and key_path.exists():
+                        cert = (str(cert_path), str(key_path))
+                        logger.info("mTLS certificates configured")
+                    else:
+                        logger.warning("mTLS certificate files not found, proceeding without mTLS")
+            except Exception as e:
+                logger.warning(f"mTLS configuration error: {e}, proceeding without mTLS")
+                cert = None
             
-            self._http_client = httpx.AsyncClient(
-                cert=cert,
-                timeout=httpx.Timeout(10.0),
-                limits=httpx.Limits(max_connections=20),
-                headers={
-                    'User-Agent': 'Financial-Alarm-Clock/1.0',
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            )
+            try:
+                self._http_client = httpx.AsyncClient(
+                    cert=cert,
+                    timeout=httpx.Timeout(10.0),
+                    limits=httpx.Limits(max_connections=20),
+                    headers={
+                        'User-Agent': 'Financial-Alarm-Clock/1.0',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                )
+                logger.info(f"HTTP client created {'with' if cert else 'without'} mTLS")
+            except Exception as e:
+                # If mTLS fails, try without certificates
+                logger.warning(f"mTLS authentication failed: {e}")
+                logger.info("Attempting connection without certificates...")
+                
+                # Create a new client without certificates
+                self._http_client = httpx.AsyncClient(
+                    cert=None,
+                    timeout=httpx.Timeout(10.0),
+                    limits=httpx.Limits(max_connections=20),
+                    headers={
+                        'User-Agent': 'Financial-Alarm-Clock/1.0',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                )
+                logger.info("HTTP client created without mTLS due to certificate issues")
         
         return self._http_client
     
@@ -120,8 +164,12 @@ class HSBCClient:
         if not self.signing_key_path or not Path(self.signing_key_path).exists():
             raise HSBCAPIError("Signing private key not found for JWT generation")
         
-        # Load private key
-        private_key = self._load_private_key(self.signing_key_path)
+        # Load private key as PEM string (fix for jose compatibility)
+        try:
+            with open(self.signing_key_path, 'r') as key_file:
+                private_key_pem = key_file.read()
+        except Exception as e:
+            raise HSBCAPIError(f"Failed to read private key file: {str(e)}")
         
         # JWT payload
         now = int(time.time())
@@ -141,11 +189,11 @@ class HSBCClient:
             'typ': 'JWT'
         }
         
-        # Generate JWT
+        # Generate JWT using PEM string
         try:
             token = jwt.encode(
                 payload, 
-                private_key, 
+                private_key_pem,  # Pass PEM string instead of cryptography object
                 algorithm='RS256',
                 headers=headers
             )
@@ -333,6 +381,9 @@ class HSBCClient:
             return True
         except HSBCAPIError as e:
             logger.warning(f"HSBC API health check failed: {e.message}")
+            # Check if it's a network error, suggest using mock mode
+            if "Network error" in str(e.message) or "getaddrinfo failed" in str(e.message):
+                logger.info("💡 Network connection issue, consider enabling HSBC mock mode for development testing")
             return False
         except Exception as e:
             logger.error(f"HSBC API health check error: {str(e)}")
@@ -344,5 +395,19 @@ class HSBCClient:
             await self._http_client.aclose()
             self._http_client = None
 
-# Global instance
-hsbc_client = HSBCClient() 
+# Global instance - choose between real client or mock client based on configuration
+def get_hsbc_client():
+    """Get HSBC client instance"""
+    from .config import settings
+    
+    # Check if mock mode is enabled
+    if settings.HSBC_MOCK_MODE:
+        from .hsbc_mock import hsbc_mock_client
+        logger.info("🎭 Using HSBC mock mode")
+        return hsbc_mock_client
+    else:
+        logger.info("🏦 Using real HSBC API")
+        return HSBCClient()
+
+# Create global instance
+hsbc_client = get_hsbc_client() 

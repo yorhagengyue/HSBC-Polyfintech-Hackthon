@@ -7,9 +7,11 @@ export const UserPreferencesContext = createContext({
   threshold: 3,
   density: 'detailed',
   lowRiskMode: false,
+  riskProfile: 'medium',
   setThreshold: () => {},
   setDensity: () => {},
   setLowRiskMode: () => {},
+  setRiskProfile: () => {},
 });
 
 export const UserPreferencesProvider = ({ children }) => {
@@ -21,6 +23,9 @@ export const UserPreferencesProvider = ({ children }) => {
   );
   const [lowRiskMode, setLowRiskMode] = useState(
     localStorage.getItem('lowRiskMode') === 'true'
+  );
+  const [riskProfile, setRiskProfile] = useState(
+    localStorage.getItem('riskProfile') || 'medium'
   );
 
   const updateThreshold = (value) => {
@@ -38,14 +43,21 @@ export const UserPreferencesProvider = ({ children }) => {
     localStorage.setItem('lowRiskMode', value.toString());
   };
 
+  const updateRiskProfile = (value) => {
+    setRiskProfile(value);
+    localStorage.setItem('riskProfile', value);
+  };
+
   return (
     <UserPreferencesContext.Provider value={{
       threshold,
       density,
       lowRiskMode,
+      riskProfile,
       setThreshold: updateThreshold,
       setDensity: updateDensity,
       setLowRiskMode: updateLowRiskMode,
+      setRiskProfile: updateRiskProfile,
     }}>
       {children}
     </UserPreferencesContext.Provider>
@@ -59,9 +71,11 @@ const UserPreferences = () => {
     threshold,
     density,
     lowRiskMode,
+    riskProfile,
     setThreshold,
     setDensity,
     setLowRiskMode,
+    setRiskProfile,
   } = useContext(UserPreferencesContext);
 
   const handleSave = () => {
@@ -186,6 +200,61 @@ const UserPreferences = () => {
                       <div>
                         <p className="text-gray-900 dark:text-white font-medium">Detailed</p>
                         <p className="text-gray-600 dark:text-gray-400 text-xs">Full metrics & charts</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Risk Profile */}
+                <div className="mb-8">
+                  <h3 className="text-gray-900 dark:text-white font-medium mb-2 flex items-center">
+                    <Shield className="w-4 h-4 mr-2 text-purple-400" />
+                    Risk Profile
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                    Your investment risk tolerance:
+                  </p>
+                  <div className="space-y-2">
+                    <label className="flex items-center p-3 bg-gray-100/50 dark:bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                      <input
+                        type="radio"
+                        name="riskProfile"
+                        value="low"
+                        checked={riskProfile === 'low'}
+                        onChange={() => setRiskProfile('low')}
+                        className="mr-3 text-hsbc-red"
+                      />
+                      <div>
+                        <p className="text-gray-900 dark:text-white font-medium">Conservative (Low Risk)</p>
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">1-2% volatile assets, focus on stability</p>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-3 bg-gray-100/50 dark:bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                      <input
+                        type="radio"
+                        name="riskProfile"
+                        value="medium"
+                        checked={riskProfile === 'medium'}
+                        onChange={() => setRiskProfile('medium')}
+                        className="mr-3 text-hsbc-red"
+                      />
+                      <div>
+                        <p className="text-gray-900 dark:text-white font-medium">Moderate (Medium Risk)</p>
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">3-5% volatile assets, balanced approach</p>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-3 bg-gray-100/50 dark:bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                      <input
+                        type="radio"
+                        name="riskProfile"
+                        value="high"
+                        checked={riskProfile === 'high'}
+                        onChange={() => setRiskProfile('high')}
+                        className="mr-3 text-hsbc-red"
+                      />
+                      <div>
+                        <p className="text-gray-900 dark:text-white font-medium">Aggressive (High Risk)</p>
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">5-10% volatile assets, growth focused</p>
                       </div>
                     </label>
                   </div>

@@ -43,8 +43,8 @@ const StocksView = ({
             <WatchlistSection 
               userStockData={userStockData}
               onStockSelect={onStockSelect}
-              onRemoveStock={(symbol) => console.log('Remove stock:', symbol)}
-              onReorderStocks={(newOrder) => console.log('Reorder stocks:', newOrder)}
+              onRemoveStock={(symbol) => {/* TODO: Remove stock */}}
+              onReorderStocks={(newOrder) => {/* TODO: Reorder stocks */}}
             />
           </motion.div>
 

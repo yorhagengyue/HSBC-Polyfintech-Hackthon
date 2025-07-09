@@ -1,17 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MessageCircle, X, Send, Bot, User, Sparkles, Loader2, AlertCircle,
   TrendingUp, TrendingDown, DollarSign, Shield, FileText, BarChart3,
   Lightbulb, AlertTriangle, CheckCircle, Copy, Download, Maximize2, 
-  Minimize2, Move
+  Minimize2, Move, Trash2
 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useTheme } from '../contexts/ThemeContext';
+import { UserPreferencesContext } from './UserPreferences';
 import { aiAPI } from '../services/api';
 
 const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
   const { isDarkMode } = useTheme();
+  const { riskProfile } = useContext(UserPreferencesContext);
   const [isOpen, setIsOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -20,15 +22,35 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
   const [isResizing, setIsResizing] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState([
-    {
+  const [messages, setMessages] = useState(() => {
+    // Load cached messages from localStorage
+    const cached = localStorage.getItem('ai_chat_messages');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        // Convert timestamp strings back to Date objects
+        return parsed.map(msg => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+      } catch (e) {
+        return [{
+          id: 1,
+          type: 'bot',
+          text: 'Hi! I\'m your AI Financial Advisor powered by Gemini. I can help you with:\n\n📊 Market Analysis & Stock Performance\n🛡️ Risk Assessment & Portfolio Optimization\n🏦 HSBC Product Recommendations\n📈 Technical & Fundamental Analysis\n⚠️ Alert Explanations & Action Plans\n\nHow can I assist you today?',
+          timestamp: new Date(),
+          features: ['analysis', 'risk', 'products', 'alerts']
+        }];
+      }
+    }
+    return [{
       id: 1,
       type: 'bot',
       text: 'Hi! I\'m your AI Financial Advisor powered by Gemini. I can help you with:\n\n📊 Market Analysis & Stock Performance\n🛡️ Risk Assessment & Portfolio Optimization\n🏦 HSBC Product Recommendations\n📈 Technical & Fundamental Analysis\n⚠️ Alert Explanations & Action Plans\n\nHow can I assist you today?',
       timestamp: new Date(),
       features: ['analysis', 'risk', 'products', 'alerts']
-    }
-  ]);
+    }];
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState(null);
   const messagesEndRef = useRef(null);
@@ -48,6 +70,18 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
 
   useEffect(() => {
     scrollToBottom();
+  }, [messages]);
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    // Don't save if it's just the initial welcome message
+    if (messages.length > 1) {
+      try {
+        localStorage.setItem('ai_chat_messages', JSON.stringify(messages));
+      } catch (e) {
+        // Silently fail - caching is not critical
+      }
+    }
   }, [messages]);
 
   // Drag and resize handlers
@@ -134,7 +168,7 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
       setCopiedMessageId(messageId);
       setTimeout(() => setCopiedMessageId(null), 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      // Failed to copy - could show a toast notification instead
     }
   };
 
@@ -155,6 +189,23 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
     window.URL.revokeObjectURL(url);
   };
 
+  // Clear chat history and cache
+  const clearChatHistory = () => {
+    if (window.confirm('Are you sure you want to clear all chat history? This cannot be undone.')) {
+      // Clear localStorage
+      localStorage.removeItem('ai_chat_messages');
+      
+      // Reset messages to initial welcome message
+      setMessages([{
+        id: 1,
+        type: 'bot',
+        text: 'Hi! I\'m your AI Financial Advisor powered by Gemini. I can help you with:\n\n📊 Market Analysis & Stock Performance\n🛡️ Risk Assessment & Portfolio Optimization\n🏦 HSBC Product Recommendations\n📈 Technical & Fundamental Analysis\n⚠️ Alert Explanations & Action Plans\n\nHow can I assist you today?',
+        timestamp: new Date(),
+        features: ['analysis', 'risk', 'products', 'alerts']
+      }]);
+    }
+  };
+
   // Enhanced prompt templates
   const enhancePrompt = (userMessage) => {
     let enhancedPrompt = userMessage;
@@ -173,20 +224,26 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async (messageText) => {
+    mutationFn: async ({ messageText, analysisMode = 'simple', context = null }) => {
       const conversationHistory = messages.slice(-6).map(msg => ({
         user: msg.type === 'user' ? msg.text : '',
         assistant: msg.type === 'bot' ? msg.text : ''
       })).filter(item => item.user || item.assistant);
 
+      // Include risk profile in context
+      const enhancedContext = {
+        ...context,
+        user_risk_profile: riskProfile || 'medium'
+      };
+
       return aiAPI.chat({
         message: enhancePrompt(messageText),
-        conversation_history: conversationHistory
+        conversation_history: conversationHistory,
+        analysis_mode: analysisMode,
+        context: enhancedContext
       });
     },
-    onSuccess: (response) => {
-      console.log('AI Response:', response); // Debug log
-      
+    onSuccess: (response, variables) => {
       // Handle different response structures
       const data = response.data || response;
       
@@ -199,14 +256,17 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
         model: data.model,
         tokens: data.tokens_used,
         cost: data.cost_estimate,
-        features: extractFeatures(data.response || data.analysis || data.content || '')
+        features: extractFeatures(data.response || data.analysis || data.content || ''),
+        analysisMode: data.analysis_mode || variables.analysisMode,
+        originalQuery: variables.messageText,
+        context: variables.context,
+        // Generate follow-up suggestions based on the response
+        followUpSuggestions: generateFollowUpSuggestions(data.response || data.analysis || data.content || '', variables.messageText)
       };
       setMessages(prev => [...prev, botMessage]);
       setIsLoading(false);
     },
     onError: (error) => {
-      console.error('AI Error:', error); // Debug log
-      
       const errorMessage = {
         id: Date.now() + 1,
         type: 'bot',
@@ -231,8 +291,38 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
     return features;
   };
 
+  // Generate follow-up suggestions based on AI response
+  const generateFollowUpSuggestions = (response, originalQuery) => {
+    const suggestions = [];
+    
+    // Context-aware suggestions based on response content
+    if (response.toLowerCase().includes('risk')) {
+      suggestions.push('How can I better diversify to reduce this risk?');
+    }
+    if (response.toLowerCase().includes('hsbc')) {
+      suggestions.push('What are the minimum requirements for these HSBC products?');
+    }
+    if (response.toLowerCase().includes('market') && response.toLowerCase().includes('volatile')) {
+      suggestions.push('Should I consider defensive assets during this volatility?');
+    }
+    if (response.toLowerCase().includes('crypto') || response.toLowerCase().includes('bitcoin')) {
+      suggestions.push('What percentage of crypto is safe for my risk profile?');
+    }
+    if (response.toLowerCase().includes('recommend')) {
+      suggestions.push('What are the historical returns of these recommendations?');
+    }
+    
+    // Always add a risk-profile aware suggestion
+    if (!suggestions.some(s => s.includes('risk profile'))) {
+      suggestions.push(`Are these recommendations suitable for my ${riskProfile} risk tolerance?`);
+    }
+    
+    // Limit to 3 suggestions
+    return suggestions.slice(0, 3);
+  };
+
   // Handle sending message
-  const handleSend = async () => {
+  const handleSend = async (analysisMode = 'simple') => {
     if (!message.trim() || isLoading) return;
 
     const userMessage = {
@@ -248,6 +338,7 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
 
     // Special handling for specific queries
     let finalMessage = message;
+    let context = null;
     
     if (message.toLowerCase().includes('explain last alert') && lastAlert) {
       finalMessage = `Please provide a comprehensive analysis of this financial alert:\n\nAlert: ${lastAlert.title}\nDetails: ${lastAlert.message}\nSeverity: ${lastAlert.severity}\nTime: ${new Date(lastAlert.timestamp).toLocaleString()}\n\nInclude:\n1. Root cause analysis\n2. Market impact assessment\n3. Risk mitigation strategies\n4. Relevant HSBC products for protection\n5. Action items with priorities`;
@@ -257,34 +348,107 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
       finalMessage = `Provide a comprehensive market outlook including:\n1. Current market conditions\n2. Key economic indicators\n3. Sector performance analysis\n4. Risk factors to monitor\n5. Investment opportunities\n6. Protective strategies using HSBC products`;
     }
 
-    sendMessageMutation.mutate(finalMessage);
+    sendMessageMutation.mutate({ 
+      messageText: finalMessage, 
+      analysisMode: analysisMode,
+      context: context 
+    });
   };
 
-  // Quick action templates
+  // Handle deep analysis request
+  const handleDeepAnalysis = (messageId) => {
+    const originalMessage = messages.find(msg => msg.id === messageId);
+    if (!originalMessage) return;
+    
+    setMessage(originalMessage.originalQuery || originalMessage.text);
+    setIsLoading(true);
+    
+    sendMessageMutation.mutate({
+      messageText: originalMessage.originalQuery || originalMessage.text,
+      analysisMode: 'deep',
+      context: originalMessage.context
+    });
+  };
+
+  // Listen for news analysis requests
+  useEffect(() => {
+    const handleNewsAnalysis = (event) => {
+      const { message, context, articles } = event.detail;
+      
+      // Open chat window
+      setIsOpen(true);
+      
+      // Create user message with context
+      const userMessage = {
+        id: Date.now(),
+        type: 'user',
+        text: message,
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+      setIsLoading(true);
+      
+      // Send to AI with context
+      sendMessageMutation.mutate({
+        messageText: message,
+        analysisMode: 'simple',
+        context: { news_articles: articles }
+      });
+    };
+
+    window.addEventListener('openAIChat', handleNewsAnalysis);
+    
+    return () => {
+      window.removeEventListener('openAIChat', handleNewsAnalysis);
+    };
+  }, []);
+
+  // Quick action templates - enhanced with follow-up prompts
   const quickActions = [
     {
       label: 'Portfolio Analysis',
       icon: BarChart3,
       message: 'Analyze current market conditions and suggest portfolio adjustments for the next 3 months',
-      color: 'blue'
+      color: 'blue',
+      followUps: [
+        'Which sectors should I overweight given my risk profile?',
+        'How should I rebalance between stocks and bonds?',
+        'What tax-efficient strategies should I consider?'
+      ]
     },
     {
       label: 'Risk Assessment',
       icon: Shield,
       message: 'What are the top 3 market risks right now and how can I protect my investments?',
-      color: 'green'
+      color: 'green',
+      followUps: [
+        'Which hedging strategies work best for my portfolio?',
+        'Should I increase my cash position?',
+        'What insurance products could protect my wealth?'
+      ]
     },
     {
       label: 'Market Update',
       icon: TrendingUp,
       message: 'Give me a quick market summary and 3 actionable investment moves for this week',
-      color: 'purple'
+      color: 'purple',
+      followUps: [
+        'Which emerging markets show the most promise?',
+        'What technical indicators suggest buy signals?',
+        'How are global events affecting markets?'
+      ]
     },
     {
       label: 'HSBC Products',
       icon: DollarSign,
       message: 'Recommend 3 HSBC products that could improve my portfolio performance and reduce risk',
-      color: 'red'
+      color: 'red',
+      followUps: [
+        'Tell me more about HSBC structured products',
+        'What are the fees for HSBC wealth management?',
+        'How does HSBC Private Banking work?'
+      ]
     }
   ];
 
@@ -425,6 +589,13 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
                 >
                   <Download className="w-4 h-4 text-gray-500" />
                 </button>
+                <button
+                  onClick={clearChatHistory}
+                  className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Clear chat history"
+                >
+                  <Trash2 className="w-4 h-4 text-gray-500" />
+                </button>
                 <motion.button
                   onClick={toggleMaximize}
                   className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -517,6 +688,42 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
                         <p className="text-xs mt-2 opacity-60">
                           {msg.tokens} tokens • ${msg.cost?.toFixed(4) || '0.0000'}
                         </p>
+                      )}
+
+                      {/* Deep Analysis Button */}
+                      {msg.type === 'bot' && !msg.isError && msg.analysisMode === 'simple' && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                          <button
+                            onClick={() => handleDeepAnalysis(msg.id)}
+                            disabled={isLoading}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white text-sm rounded-lg transition-all disabled:opacity-50"
+                          >
+                            <Sparkles className="w-4 h-4" />
+                            Deep Analysis
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Follow-up Suggestions */}
+                      {msg.type === 'bot' && !msg.isError && msg.followUpSuggestions && msg.followUpSuggestions.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Suggested follow-ups:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {msg.followUpSuggestions.map((suggestion, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                  setMessage(suggestion);
+                                  handleSend();
+                                }}
+                                disabled={isLoading}
+                                className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50"
+                              >
+                                {suggestion}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                     
@@ -618,8 +825,9 @@ const AIChat = ({ lastAlert, hasNewAlert, userStocks = [] }) => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={handleSend}
+                  onClick={() => handleSend('simple')}
                   disabled={isLoading || !message.trim()}
+                  data-send-button
                   className="px-4 py-2.5 bg-gradient-to-r from-hsbc-red to-red-600 hover:from-red-700 hover:to-red-700 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                 >
                   {isLoading ? (

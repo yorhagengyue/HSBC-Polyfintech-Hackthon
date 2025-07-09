@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { UserCheck, TrendingUp, TrendingDown, AlertCircle, DollarSign, Users, Calendar, Building2, Database, Wifi, WifiOff } from 'lucide-react';
 import { advancedAPI } from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 const InsiderTradesWidget = ({ onTradeClick }) => {
+  const { isDarkMode } = useTheme();
   const [selectedTrade, setSelectedTrade] = useState(null);
   
   const { data: insiderTrades, isLoading, error } = useQuery({
@@ -45,17 +47,27 @@ const InsiderTradesWidget = ({ onTradeClick }) => {
   };
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
+    <div className={`border rounded-xl overflow-hidden ${
+      isDarkMode 
+        ? 'bg-gray-800 border-gray-700' 
+        : 'bg-white border-gray-200'
+    }`}>
       {/* Header */}
-      <div className="p-6 border-b border-gray-700">
+      <div className={`p-6 border-b ${
+        isDarkMode ? 'border-gray-700' : 'border-gray-200'
+      }`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-lg">
               <Users className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Insider Trading Activity</h2>
-              <p className="text-sm text-gray-400">Executive transactions in real-time</p>
+              <h2 className={`text-xl font-bold ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>Insider Trading Activity</h2>
+              <p className={`text-sm ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>Executive transactions in real-time</p>
             </div>
           </div>
           
@@ -78,22 +90,32 @@ const InsiderTradesWidget = ({ onTradeClick }) => {
         {/* Summary Stats */}
         {insiderTrades && insiderTrades.length > 0 && (
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-gray-700/50 rounded-lg p-3">
-              <div className="text-sm text-gray-400 mb-1">Total Volume</div>
-              <div className="text-2xl font-bold text-white">
+            <div className={`rounded-lg p-3 ${
+              isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'
+            }`}>
+              <div className={`text-sm mb-1 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>Total Volume</div>
+              <div className={`text-2xl font-bold ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
                 {formatValue(insiderTrades.reduce((sum, trade) => sum + (trade.value || 0), 0))}
               </div>
             </div>
             
             <div className="bg-green-500/10 rounded-lg p-3 border border-green-500/20">
-              <div className="text-sm text-gray-400 mb-1">Buys</div>
+              <div className={`text-sm mb-1 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>Buys</div>
               <div className="text-2xl font-bold text-green-400">
                 {insiderTrades.filter(trade => trade.transaction_type === 'BUY').length}
               </div>
             </div>
             
             <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20">
-              <div className="text-sm text-gray-400 mb-1">Sells</div>
+              <div className={`text-sm mb-1 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>Sells</div>
               <div className="text-2xl font-bold text-red-400">
                 {insiderTrades.filter(trade => trade.transaction_type === 'SELL').length}
               </div>
@@ -111,7 +133,9 @@ const InsiderTradesWidget = ({ onTradeClick }) => {
               <AlertCircle className="w-4 h-4 text-orange-400" />
               <span className="text-sm font-medium text-orange-400">Demo Data Notice</span>
             </div>
-            <p className="text-xs text-gray-400">
+            <p className={`text-xs ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
               Showing simulated insider trading data. Configure YAHOO_FINANCE_RAPID_API_KEY to see real SEC filings.
             </p>
           </div>
@@ -125,17 +149,29 @@ const InsiderTradesWidget = ({ onTradeClick }) => {
 
         {error && (
           <div className="text-center py-8">
-            <WifiOff className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-400 font-medium">Failed to load insider trades</p>
-            <p className="text-gray-500 text-sm">{error.message}</p>
+            <WifiOff className={`w-12 h-12 mx-auto mb-3 ${
+              isDarkMode ? 'text-gray-600' : 'text-gray-400'
+            }`} />
+            <p className={`font-medium ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-700'
+            }`}>Failed to load insider trades</p>
+            <p className={`text-sm ${
+              isDarkMode ? 'text-gray-500' : 'text-gray-600'
+            }`}>{error.message}</p>
           </div>
         )}
 
         {!isLoading && !error && (!insiderTrades || insiderTrades.length === 0) && (
           <div className="text-center py-8">
-            <Users className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-400 font-medium">No insider trades available</p>
-            <p className="text-gray-500 text-sm">Check back later for updates</p>
+            <Users className={`w-12 h-12 mx-auto mb-3 ${
+              isDarkMode ? 'text-gray-600' : 'text-gray-400'
+            }`} />
+            <p className={`font-medium ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-700'
+            }`}>No insider trades available</p>
+            <p className={`text-sm ${
+              isDarkMode ? 'text-gray-500' : 'text-gray-600'
+            }`}>Check back later for updates</p>
           </div>
         )}
 
@@ -157,8 +193,12 @@ const InsiderTradesWidget = ({ onTradeClick }) => {
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
                     {/* Stock Symbol */}
-                    <div className="p-2 bg-gray-700 rounded-lg">
-                      <span className="text-sm font-bold text-white">
+                    <div className={`p-2 rounded-lg ${
+                      isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+                    }`}>
+                      <span className={`text-sm font-bold ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
                         {trade.symbol}
                       </span>
                     </div>
@@ -166,7 +206,9 @@ const InsiderTradesWidget = ({ onTradeClick }) => {
                     <div className="flex-1">
                       {/* Company & Transaction Type */}
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-white">{trade.company_name}</h3>
+                        <h3 className={`font-semibold ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>{trade.company_name}</h3>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                           trade.transaction_type === 'SELL' 
                             ? 'bg-red-500/20 text-red-400' 
@@ -184,7 +226,9 @@ const InsiderTradesWidget = ({ onTradeClick }) => {
                       </div>
                       
                       {/* Insider Details */}
-                      <div className="flex items-center gap-4 text-sm text-gray-400 mb-2">
+                      <div className={`flex items-center gap-4 text-sm mb-2 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
                         <div className="flex items-center gap-1">
                           <UserCheck className="w-3 h-3" />
                           <span>{trade.insider_name}</span>
@@ -197,13 +241,19 @@ const InsiderTradesWidget = ({ onTradeClick }) => {
                       
                       {/* Transaction Details */}
                       <div className="flex items-center gap-4 text-sm">
-                        <span className="text-gray-300">
+                        <span className={`${
+                          isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                        }`}>
                           {formatShares(trade.shares)} shares
                         </span>
-                        <span className="text-gray-400">
+                        <span className={`${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
                           @ ${trade.price?.toFixed(2)}
                         </span>
-                        <div className="flex items-center gap-1 text-gray-400">
+                        <div className={`flex items-center gap-1 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
                           <Calendar className="w-3 h-3" />
                           <span>{getTimeAgo(trade.filing_date)}</span>
                         </div>
@@ -213,10 +263,14 @@ const InsiderTradesWidget = ({ onTradeClick }) => {
                   
                   {/* Transaction Value */}
                   <div className="text-right">
-                    <div className="text-lg font-bold text-white mb-1">
+                    <div className={`text-lg font-bold mb-1 ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
                       {formatValue(trade.value)}
                     </div>
-                    <div className="text-xs text-gray-400">
+                    <div className={`text-xs ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
                       {formatShares(trade.shares)} shares
                     </div>
                   </div>
@@ -227,8 +281,12 @@ const InsiderTradesWidget = ({ onTradeClick }) => {
         )}
         
         {/* Data Source Footer */}
-        <div className="mt-4 pt-4 border-t border-gray-700">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className={`mt-4 pt-4 border-t ${
+          isDarkMode ? 'border-gray-700' : 'border-gray-200'
+        }`}>
+          <div className={`flex items-center justify-between text-xs ${
+            isDarkMode ? 'text-gray-500' : 'text-gray-600'
+          }`}>
             <span>
               Data source: {isRealData ? 'SEC Filings via RapidAPI' : 'Simulated Demo Data'}
             </span>

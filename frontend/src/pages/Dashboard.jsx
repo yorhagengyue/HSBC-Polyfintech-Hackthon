@@ -18,6 +18,7 @@ import AlertSystem from '../components/AlertSystem';
 import AIChat from '../components/AIChat';
 import UserPreferences from '../components/UserPreferences';
 import GlobalSearchBar from '../components/GlobalSearchBar';
+import OnboardingGuide from '../components/OnboardingGuide';
 import useEventStream from '../hooks/useEventStream';
 import { stockAPI } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -49,7 +50,6 @@ const Dashboard = () => {
   const refreshUserStocks = useCallback(() => {
     // This will be triggered from UserStocksList component
     // The actual refresh is handled by StockManager
-    console.log('Refreshing user stocks...');
   }, []);
 
   // Calculate risk score based on alerts
@@ -81,8 +81,6 @@ const Dashboard = () => {
 
   // WebSocket event handler
   const handleWebSocketMessage = useCallback((data) => {
-    console.log('Received WebSocket event:', data);
-    
     if (data.type === 'price_drop' || data.type === 'major_news' || data.type === 'risk_alert') {
       // Add new alert
       const newAlert = {
@@ -104,12 +102,10 @@ const Dashboard = () => {
 
   // WebSocket connection handlers
   const handleConnect = useCallback(() => {
-    console.log('WebSocket connected');
     setWsConnected(true);
   }, []);
 
   const handleDisconnect = useCallback(() => {
-    console.log('WebSocket disconnected');
     setWsConnected(false);
   }, []);
 
@@ -238,35 +234,28 @@ const Dashboard = () => {
   };
 
   const handleAlertClick = (alert) => {
-    // This could open AI chat with context about the alert
-    console.log('Alert clicked:', alert);
     setSelectedAlert(alert);
   };
 
   const handleTradeClick = (trade) => {
-    console.log('Trade clicked:', trade);
     setSelectedTrade(trade);
   };
 
   const handleStartMonitoring = async (monitoringData) => {
     try {
       await stockAPI.startMonitoring(monitoringData);
-      console.log('Started monitoring:', monitoringData);
       // Could show a success toast here
     } catch (error) {
-      console.error('Failed to start monitoring:', error);
       // Could show an error toast here
     }
   };
 
   // Banking handlers
   const handleAccountSelect = (account) => {
-    console.log('Account selected:', account);
     setSelectedAccount(account);
   };
 
   const handleTransactionSelect = (transaction) => {
-    console.log('Transaction selected:', transaction);
     setSelectedTransaction(transaction);
   };
 
@@ -412,7 +401,6 @@ const Dashboard = () => {
                 onStockSelect={setSelectedStock}
                 onRemoveStock={(symbol) => {
                   // Remove stock logic here
-                  console.log('Remove stock:', symbol);
                 }}
                 onReorderStocks={(newOrder) => {
                   // Reorder logic here
@@ -489,6 +477,9 @@ const Dashboard = () => {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Onboarding Guide for new users */}
+      <OnboardingGuide />
 
       {/* Alert System - Fixed position overlay */}
       <AlertSystem stockData={userStockData} />
@@ -613,8 +604,7 @@ const Dashboard = () => {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => {
-          // Generate PDF report
-          console.log('Generating PDF report...');
+          // TODO: Generate PDF report
           // This would integrate with a PDF generation library
         }}
         className="fixed bottom-40 right-4 w-14 h-14 bg-hsbc-red hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"

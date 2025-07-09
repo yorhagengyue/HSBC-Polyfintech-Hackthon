@@ -16,10 +16,9 @@ const useEventStream = (onMessage, onConnect, onDisconnect) => {
       // Connection timeout (3 seconds)
       connectionTimeoutRef.current = setTimeout(() => {
         if (!isConnectedRef.current) {
-          toast.error('实时数据连接超时，正在重连...', {
-            id: 'ws-timeout',
+          toast.error('Real-time data connection timeout, reconnecting...', {
             duration: 3000,
-            icon: '🔄'
+            position: 'top-right',
           });
         }
       }, 3000);
@@ -36,7 +35,7 @@ const useEventStream = (onMessage, onConnect, onDisconnect) => {
 
         // Show success toast only after reconnection
         if (reconnectCountRef.current > 0) {
-          toast.success('实时数据连接已恢复', {
+          toast.success('Real-time data connection restored', {
             id: 'ws-connected',
             duration: 2000,
             icon: '✅'
@@ -67,7 +66,7 @@ const useEventStream = (onMessage, onConnect, onDisconnect) => {
         if (onDisconnect) onDisconnect();
 
         // Show disconnection toast
-        toast.error('实时数据暂停，正在重连...', {
+        toast.error('Real-time data paused, reconnecting...', {
           id: 'ws-disconnected',
           duration: 3000,
           icon: '🔄'
@@ -85,7 +84,7 @@ const useEventStream = (onMessage, onConnect, onDisconnect) => {
         console.error('WebSocket error:', error);
         isConnectedRef.current = false;
         
-        toast.error('实时数据连接出错，正在重连...', {
+        toast.error('Real-time data connection error, reconnecting...', {
           id: 'ws-error',
           duration: 3000,
           icon: '⚠️'
@@ -94,7 +93,7 @@ const useEventStream = (onMessage, onConnect, onDisconnect) => {
 
     } catch (error) {
       console.error('Error creating WebSocket:', error);
-      toast.error('无法建立实时数据连接', {
+      toast.error('Unable to establish real-time data connection', {
         id: 'ws-create-error',
         duration: 3000,
         icon: '❌'

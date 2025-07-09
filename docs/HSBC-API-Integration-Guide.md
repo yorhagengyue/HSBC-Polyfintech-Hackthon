@@ -1,78 +1,78 @@
-# HSBC Open Banking API 集成指南
+# HSBC Open Banking API Integration Guide
 
-## 📋 所需 API 清单
+## 📋 Required API List
 
-### 1. 必需的 APIs
+### 1. Required APIs
 
-#### 🏦 HSBC Open Banking API (必需)
-- **用途**: 获取汇丰银行产品信息，为用户推荐避险产品
-- **重要性**: ⭐⭐⭐⭐⭐ (比赛硬性要求)
-- **申请地址**: https://developer.hsbc.com/
-- **所需证书**: Transport + Signing 证书
+#### 🏦 HSBC Open Banking API (Required)
+- **Purpose**: Get HSBC banking product information, recommend hedging products for users
+- **Importance**: ⭐⭐⭐⭐⭐ (Competition hard requirement)
+- **Application URL**: https://developer.hsbc.com/
+- **Required Certificates**: Transport + Signing certificates
 
-#### 📈 Yahoo Finance API (免费)
-- **用途**: 获取实时股价和市场数据
-- **重要性**: ⭐⭐⭐⭐⭐ (核心数据源)
-- **获取方式**: 使用 `yfinance` Python 库，无需 API Key
+#### 📈 Yahoo Finance API (Free)
+- **Purpose**: Get real-time stock prices and market data
+- **Importance**: ⭐⭐⭐⭐⭐ (Core data source)
+- **Access Method**: Use `yfinance` Python library, no API Key needed
 
-#### 🤖 Ollama (本地)
-- **用途**: 运行 Mistral-7B 模型进行 AI 分析
-- **重要性**: ⭐⭐⭐⭐⭐ (AI 功能核心)
-- **安装**: 下载 Ollama 并拉取 mistral:7b 模型
+#### 🤖 Ollama (Local)
+- **Purpose**: Run Mistral-7B model for AI analysis
+- **Importance**: ⭐⭐⭐⭐⭐ (AI functionality core)
+- **Installation**: Download Ollama and pull mistral:7b model
 
-### 2. 可选的 APIs
+### 2. Optional APIs
 
-#### 📰 News API (推荐)
-- **用途**: 获取财经新闻，检测市场事件
-- **重要性**: ⭐⭐⭐⭐ (增强功能)
-- **申请地址**: https://newsapi.org/ (免费1000次/天)
+#### 📰 News API (Recommended)
+- **Purpose**: Get financial news, detect market events
+- **Importance**: ⭐⭐⭐⭐ (Enhanced functionality)
+- **Application URL**: https://newsapi.org/ (Free 1000 calls/day)
 
-## 🔐 HSBC API 证书生成流程
+## 🔐 HSBC API Certificate Generation Process
 
-### 步骤 1: 检查 OpenSSL 安装
+### Step 1: Check OpenSSL Installation
 
 ```powershell
-# 检查 OpenSSL 是否安装
+# Check if OpenSSL is installed
 openssl version
 
-# 如果没有安装，请从以下链接下载:
+# If not installed, download from:
 # https://slproweb.com/products/Win32OpenSSL.html
 ```
 
-### 步骤 2: 运行证书生成脚本
+### Step 2: Run Certificate Generation Script
 
 ```powershell
-# 在项目根目录运行
+# Run in project root directory
 cd financial-alarm-clock
 .\scripts\generate-hsbc-certificates.ps1
 ```
 
-### 步骤 3: 提交 CSR 到 HSBC
+### Step 3: Submit CSR to HSBC
 
-1. 访问 [HSBC Developer Portal](https://developer.hsbc.com/)
-2. 注册开发者账户
-3. 创建新的应用程序
-4. 上传生成的 CSR 文件:
+1. Visit [HSBC Developer Portal](https://developer.hsbc.com/)
+2. Register developer account
+3. Create new application
+4. Upload generated CSR files:
    - `certs/transport.csr`
    - `certs/signing.csr`
 
-### 步骤 4: 下载签名证书
+### Step 4: Download Signed Certificates
 
-1. 等待 HSBC 处理 CSR（通常 1-3 个工作日）
-2. 下载签名后的证书
-3. 将证书重命名并放置在 `certs/` 目录:
+1. Wait for HSBC to process CSR (usually 1-3 business days)
+2. Download signed certificates
+3. Rename and place certificates in `certs/` directory:
    - `transport_certificate.pem`
    - `signing_certificate.pem`
 
-### 步骤 5: 配置环境变量
+### Step 5: Configure Environment Variables
 
-复制并编辑环境变量文件：
+Copy and edit environment variables file:
 
 ```bash
 cp backend/example.env backend/.env
 ```
 
-更新 `.env` 文件中的 HSBC 配置：
+Update HSBC configuration in `.env` file:
 
 ```env
 # HSBC API Configuration
@@ -86,78 +86,78 @@ HSBC_SIGNING_CERT_PATH=../certs/signing_certificate.pem
 HSBC_SIGNING_KEY_PATH=../certs/signing_private.key
 ```
 
-## 🚀 API 申请优先级
+## 🚀 API Application Priority
 
-### 立即可用 (开始开发)
-1. **Yahoo Finance** - 无需申请，立即可用
-2. **Ollama** - 本地安装，无需 API Key
+### Immediately Available (Start Development)
+1. **Yahoo Finance** - No application needed, immediately available
+2. **Ollama** - Local installation, no API Key needed
 
-### 尽快申请 (1-3 天)
-3. **News API** - 免费注册，即时生效
-4. **HSBC API** - 需要审核，准备证书
+### Apply ASAP (1-3 days)
+3. **News API** - Free registration, instant activation
+4. **HSBC API** - Requires review, prepare certificates
 
-### 开发策略
+### Development Strategy
 
-#### 阶段 1: MVP 开发 (现在)
-- ✅ 使用 Yahoo Finance 实现市场监控
-- ✅ 安装 Ollama 进行本地 AI 分析
-- ✅ 创建模拟的 HSBC 产品推荐接口
+#### Phase 1: MVP Development (Now)
+- ✅ Use Yahoo Finance to implement market monitoring
+- ✅ Install Ollama for local AI analysis
+- ✅ Create mock HSBC product recommendation interface
 
-#### 阶段 2: API 集成 (获得 API 后)
-- 🔄 集成真实的 HSBC API
-- 🔄 添加新闻监控功能
-- 🔄 完善 AI 分析能力
+#### Phase 2: API Integration (After getting APIs)
+- 🔄 Integrate real HSBC API
+- 🔄 Add news monitoring functionality
+- 🔄 Enhance AI analysis capabilities
 
-## 📁 生成的文件结构
+## 📁 Generated File Structure
 
 ```
 financial-alarm-clock/
-├── certs/                          # 证书目录
-│   ├── eidas.conf                  # eIDAS 配置文件
-│   ├── transport_private.key       # Transport 私钥 (保密)
-│   ├── transport.csr              # Transport 证书请求
-│   ├── transport_certificate.pem   # Transport 证书 (从 HSBC 下载)
-│   ├── transport_public.pem       # Transport 公钥
-│   ├── signing_private.key        # Signing 私钥 (保密)
-│   ├── signing.csr               # Signing 证书请求
-│   ├── signing_certificate.pem    # Signing 证书 (从 HSBC 下载)
-│   └── signing_public.pem        # Signing 公钥
+├── certs/                          # Certificate directory
+│   ├── eidas.conf                  # eIDAS configuration file
+│   ├── transport_private.key       # Transport private key (confidential)
+│   ├── transport.csr              # Transport certificate request
+│   ├── transport_certificate.pem   # Transport certificate (download from HSBC)
+│   ├── transport_public.pem       # Transport public key
+│   ├── signing_private.key        # Signing private key (confidential)
+│   ├── signing.csr               # Signing certificate request
+│   ├── signing_certificate.pem    # Signing certificate (download from HSBC)
+│   └── signing_public.pem        # Signing public key
 ├── scripts/
-│   ├── generate-hsbc-certificates.sh   # Linux/Mac 脚本
-│   └── generate-hsbc-certificates.ps1  # Windows 脚本
+│   ├── generate-hsbc-certificates.sh   # Linux/Mac script
+│   └── generate-hsbc-certificates.ps1  # Windows script
 └── backend/
-    └── .env                        # 环境变量配置
+    └── .env                        # Environment variable configuration
 ```
 
-## ⚠️ 安全注意事项
+## ⚠️ Security Considerations
 
-1. **私钥保护**: 
-   - 私钥文件 (`*_private.key`) 绝不能提交到版本控制
-   - 确保 `.gitignore` 包含 `certs/` 目录
+1. **Private Key Protection**: 
+   - Private key files (`*_private.key`) must never be committed to version control
+   - Ensure `.gitignore` includes `certs/` directory
 
-2. **证书管理**:
-   - 定期检查证书有效期
-   - 备份证书和私钥到安全位置
+2. **Certificate Management**:
+   - Regularly check certificate validity period
+   - Backup certificates and private keys to secure location
 
-3. **环境变量**:
-   - 生产环境使用不同的证书和密钥
-   - 不要在代码中硬编码敏感信息
+3. **Environment Variables**:
+   - Use different certificates and keys for production environment
+   - Don't hardcode sensitive information in code
 
-## 🔗 有用链接
+## 🔗 Useful Links
 
 - [HSBC Developer Portal](https://developer.hsbc.com/)
-- [HSBC Open Banking API 文档](https://developer.hsbc.com/open-banking)
-- [News API 官网](https://newsapi.org/)
-- [Ollama 官网](https://ollama.ai/)
-- [Yahoo Finance Python 库](https://pypi.org/project/yfinance/)
+- [HSBC Open Banking API Documentation](https://developer.hsbc.com/open-banking)
+- [News API Official Website](https://newsapi.org/)
+- [Ollama Official Website](https://ollama.ai/)
+- [Yahoo Finance Python Library](https://pypi.org/project/yfinance/)
 
-## 📞 支持
+## 📞 Support
 
-如果在 API 申请或集成过程中遇到问题：
+If you encounter problems during API application or integration:
 
-1. 查看 HSBC Developer Portal 的文档和 FAQ
-2. 联系 HSBC 开发者支持团队
-3. 参考项目的 Issues 和文档
+1. Check HSBC Developer Portal documentation and FAQ
+2. Contact HSBC developer support team
+3. Refer to project Issues and documentation
 
 ## 📋 Registration Success ✅
 

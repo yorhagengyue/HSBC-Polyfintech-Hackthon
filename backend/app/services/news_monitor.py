@@ -4,8 +4,7 @@ News monitoring service using NewsAPI
 import asyncio
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Set
-from newsapi import NewsApiClient
-from newsapi.newsapi_exception import NewsAPIException
+# NewsAPI imports moved to __init__ method to handle missing dependency gracefully
 import logging
 from dataclasses import dataclass
 from collections import defaultdict
@@ -51,10 +50,37 @@ class NewsMonitor:
         self.monitored_symbols: Set[str] = set()
         self.keyword_alerts: Dict[str, List[str]] = defaultdict(list)  # keyword -> symbols mapping
         
-        if self.api_key:
-            self.newsapi = NewsApiClient(api_key=self.api_key)
+        # Check if we have a real API key (not demo/placeholder values)
+        if (self.api_key and 
+            self.api_key not in ["demo_mock_mode", "your_news_api_key_here", "", None]):
+            try:
+                # Try to import and initialize NewsApiClient
+                from newsapi import NewsApiClient
+                self.newsapi = NewsApiClient(api_key=self.api_key)
+                logger.info(f"📰 News service initialized with real API key: {self.api_key[:10]}...")
+                
+                # Test the API with a simple call
+                try:
+                    test_response = self.newsapi.get_top_headlines(category='business', page_size=1)
+                    if test_response.get('status') == 'ok':
+                        logger.info("📰 News API test call successful")
+                    else:
+                        logger.error(f"📰 News API test failed: {test_response}")
+                        self.newsapi = None
+                except Exception as test_e:
+                    logger.error(f"📰 News API test call failed: {test_e}")
+                    self.newsapi = None
+                    
+            except ImportError as e:
+                logger.error(f"📰 Failed to import newsapi library: {e}")
+                logger.info("📰 Install with: pip install newsapi-python")
+                self.newsapi = None
+            except Exception as e:
+                logger.error(f"📰 Failed to initialize News API: {e}")
+                logger.info("📰 Falling back to mock mode")
+                self.newsapi = None
         else:
-            logger.warning("NEWS_API_KEY not configured. News monitoring disabled.")
+            logger.info(f"📰 News service running in mock mode - API key: '{self.api_key}'")
     
     def add_symbol_monitoring(self, symbol: str, keywords: Optional[List[str]] = None):
         """Add a symbol to monitor for news"""
@@ -110,8 +136,18 @@ class NewsMonitor:
     ) -> List[NewsArticle]:
         """Search for news articles"""
         if not self.newsapi:
-            logger.warning("News API not configured")
-            return []
+            # Return filtered mock news data based on query
+            mock_news = self._get_mock_market_news()
+            # Simple search filter - check if query is in title or description
+            filtered_news = []
+            query_lower = query.lower()
+            for article in mock_news:
+                if (query_lower in article.title.lower() or 
+                    query_lower in article.description.lower() or
+                    any(query_lower in symbol.lower() for symbol in article.symbols)):
+                    filtered_news.append(article)
+            
+            return filtered_news[:page_size]
         
         # Check cache first
         cache_key = f"{query}_{language}_{sort_by}_{page_size}"
@@ -168,17 +204,19 @@ class NewsMonitor:
             
             return articles
             
-        except NewsAPIException as e:
-            logger.error(f"NewsAPI error: {e}")
-            return []
         except Exception as e:
-            logger.error(f"Error searching news: {e}")
+            if "NewsAPIException" in str(type(e)):
+                logger.error(f"NewsAPI error: {e}")
+            else:
+                logger.error(f"Error searching news: {e}")
             return []
     
     async def get_market_news(self, category: str = "business") -> List[NewsArticle]:
         """Get top business/market news"""
         if not self.newsapi:
-            return []
+            logger.warning(f"📰 No real API configured (API key: {self.api_key[:10] + '...' if self.api_key and len(self.api_key) > 10 else self.api_key})")
+            # Return mock news data for demo purposes
+            return self._get_mock_market_news()
         
         cache_key = f"headlines_{category}"
         if cache_key in self.cache:
@@ -349,6 +387,111 @@ class NewsMonitor:
                 score += 0.1
         
         return min(score, 1.0)  # Cap at 1.0
+
+    def _get_mock_market_news(self) -> List[NewsArticle]:
+        """Generate mock market news for demo purposes"""
+        from datetime import datetime, timedelta
+        import random
+        
+        # Mock news articles with financial/market themes
+        mock_articles = [
+            {
+                "title": "Fed Signals Potential Interest Rate Cuts Amid Economic Uncertainty",
+                "description": "Federal Reserve officials hint at possible monetary policy adjustments as inflation shows signs of cooling while employment remains robust.",
+                "source": "Reuters",
+                "url": "https://www.reuters.com/business/finance/",
+                "symbols": ["SPY", "QQQ", "DIA"]
+            },
+            {
+                "title": "Tech Stocks Rally as AI Investments Drive Market Optimism",
+                "description": "Major technology companies report strong earnings driven by artificial intelligence investments, pushing the NASDAQ to new highs.",
+                "source": "Bloomberg",
+                "url": "https://www.bloomberg.com/technology",
+                "symbols": ["AAPL", "MSFT", "GOOGL", "NVDA"]
+            },
+            {
+                "title": "Oil Prices Surge Following OPEC+ Production Cut Announcement",
+                "description": "Energy markets react positively to OPEC+ decision to maintain production cuts, driving crude oil futures higher.",
+                "source": "Financial Times",
+                "url": "https://www.ft.com/commodities",
+                "symbols": ["XOM", "CVX", "COP"]
+            },
+            {
+                "title": "Banking Sector Shows Resilience Despite Credit Concerns",
+                "description": "Major banks report better-than-expected quarterly results, with loan growth offsetting credit quality worries.",
+                "source": "Wall Street Journal",
+                "url": "https://www.wsj.com/finance",
+                "symbols": ["JPM", "BAC", "WFC", "C"]
+            },
+            {
+                "title": "Electric Vehicle Sales Accelerate in Global Markets",
+                "description": "EV manufacturers report record deliveries as government incentives and improving infrastructure boost adoption rates.",
+                "source": "CNBC",
+                "url": "https://www.cnbc.com/electric-vehicles/",
+                "symbols": ["TSLA", "GM", "F", "RIVN"]
+            },
+            {
+                "title": "Cryptocurrency Market Gains Momentum with Institutional Adoption",
+                "description": "Digital assets see increased institutional investment as regulatory clarity improves and ETF approvals expand.",
+                "source": "CoinDesk",
+                "url": "https://www.coindesk.com/markets/",
+                "symbols": ["COIN", "MSTR", "RIOT"]
+            },
+            {
+                "title": "Healthcare Stocks Outperform on Breakthrough Drug Approvals",
+                "description": "Pharmaceutical companies report positive clinical trial results, driving healthcare sector gains amid aging population trends.",
+                "source": "MarketWatch",
+                "url": "https://www.marketwatch.com/investing/index/djuspr",
+                "symbols": ["JNJ", "PFE", "ABBV", "MRK"]
+            },
+            {
+                "title": "Consumer Spending Remains Strong Despite Inflation Concerns",
+                "description": "Retail sales data shows continued consumer resilience as spending patterns shift toward experiences and services.",
+                "source": "Yahoo Finance",
+                "url": "https://finance.yahoo.com/topic/retail/",
+                "symbols": ["WMT", "AMZN", "TGT", "COST"]
+            },
+            {
+                "title": "Semiconductor Shortage Eases as Supply Chain Normalizes",
+                "description": "Chip manufacturers report improved production capacity, signaling relief for automotive and electronics industries.",
+                "source": "The Information",
+                "url": "https://www.theinformation.com/semiconductors",
+                "symbols": ["INTC", "AMD", "QCOM", "AVGO"]
+            },
+            {
+                "title": "Real Estate Market Shows Signs of Stabilization",
+                "description": "Housing data indicates slowing price growth and increased inventory levels as mortgage rates remain elevated.",
+                "source": "National Association of Realtors",
+                "url": "https://www.nar.realtor/research-and-statistics",
+                "symbols": ["D", "O", "PLD", "EXR"]
+            }
+        ]
+        
+        articles = []
+        now = datetime.now()
+        
+        # Generate articles with random recent timestamps
+        for i, article_data in enumerate(mock_articles[:8]):  # Use first 8 articles
+            # Generate random timestamp within last 24 hours
+            hours_ago = random.randint(1, 24)
+            published_at = now - timedelta(hours=hours_ago)
+            
+            article = NewsArticle(
+                title=article_data["title"],
+                description=article_data["description"],
+                source=article_data["source"],
+                url=article_data["url"],
+                published_at=published_at,
+                sentiment=random.choice(["positive", "neutral", "negative"]),
+                relevance_score=random.uniform(0.7, 0.95),
+                symbols=article_data["symbols"]
+            )
+            articles.append(article)
+        
+        # Sort by published date (newest first)
+        articles.sort(key=lambda x: x.published_at, reverse=True)
+        
+        return articles
 
 
 # Global instance

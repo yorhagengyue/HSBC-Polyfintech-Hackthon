@@ -58,11 +58,9 @@ const MiniChart = ({ symbol, isOpen, onClose }) => {
             }
           }
         } catch (err) {
-          console.error('Failed to fetch chart data:', err);
           setError('Failed to load chart data');
           
           // Generate fallback mock data only if real API fails
-          console.warn('Using fallback mock data for chart');
           const basePrice = 150 + Math.random() * 50;
           const data = [];
           

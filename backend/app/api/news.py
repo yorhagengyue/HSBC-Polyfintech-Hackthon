@@ -100,4 +100,16 @@ async def get_news_alerts():
             "monitored_symbols": list(news_monitor.monitored_symbols)
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/status")
+async def get_news_api_status():
+    """Get news API configuration status"""
+    return {
+        "api_key_configured": bool(news_monitor.api_key and news_monitor.api_key not in ["", "demo_mock_mode", "your_news_api_key_here"]),
+        "api_key_preview": news_monitor.api_key[:10] + "..." if news_monitor.api_key and len(news_monitor.api_key) > 10 else news_monitor.api_key,
+        "newsapi_client_initialized": news_monitor.newsapi is not None,
+        "using_mock_data": news_monitor.newsapi is None,
+        "cache_entries": len(news_monitor.cache)
+    } 

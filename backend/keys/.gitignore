@@ -1,10 +1,10 @@
-# 保护 Google Cloud 密钥文件
+# Protect Google Cloud key files
 *.json
 vertex_key.json
 *.pem
 *.key
 
-# 确保密钥文件不会被提交到版本控制
+# Ensure key files are not committed to version control
 **/*.json
 **/*.pem
 **/*.key 
