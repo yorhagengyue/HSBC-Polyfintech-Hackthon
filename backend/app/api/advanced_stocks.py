@@ -347,39 +347,16 @@ async def get_market_summary():
                 })
             return formatted_indices
         
-        # Fallback to Yahoo Finance for main indices if RapidAPI fails
-        import yfinance as yf
-        indices = ['^GSPC', '^DJI', '^IXIC']
-        results = []
+        # Fallback to our rate-limited service for main indices if RapidAPI fails
+        logger.warning("RapidAPI failed, using rate-limited Yahoo Finance fallback")
+        from app.services.yahoo_finance import yahoo_finance_service
         
-        for index in indices:
-            try:
-                ticker = yf.Ticker(index)
-                history = ticker.history(period="2d")
-                
-                if not history.empty and len(history) >= 2:
-                    current_price = history['Close'].iloc[-1]
-                    previous_close = history['Close'].iloc[-2]
-                    change = current_price - previous_close
-                    change_percent = (change / previous_close) * 100
-                    
-                    index_name = {
-                        '^GSPC': 'S&P 500',
-                        '^DJI': 'Dow Jones',
-                        '^IXIC': 'NASDAQ'
-                    }.get(index, index)
-                    
-                    results.append({
-                        "symbol": index,
-                        "name": index_name,
-                        "price": round(current_price, 2),
-                        "change": round(change, 2),
-                        "change_percent": round(change_percent, 2),
-                        "volume": 0  # Volume not available from yfinance for indices
-                    })
-            except Exception as e:
-                logger.error(f"Error fetching index {index}: {e}")
-                continue
+        try:
+            # Use our specialized market indices method with rate limiting
+            results = yahoo_finance_service.get_market_indices_batch()
+        except Exception as e:
+            logger.error(f"Error fetching market indices via rate-limited service: {e}")
+            results = []
         
         if results:
             return results

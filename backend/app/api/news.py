@@ -7,7 +7,7 @@ from datetime import datetime
 
 from ..services.news_monitor import news_monitor, NewsArticle
 
-router = APIRouter(prefix="/news", tags=["news"])
+router = APIRouter(tags=["news"])
 
 
 @router.get("/market", response_model=List[dict])

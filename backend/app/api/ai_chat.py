@@ -1,16 +1,19 @@
 """
 AI Chat API endpoints
-Based on ai.md document design
+Enhanced with structured outputs and session management
 """
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
 import json
 import logging
+import uuid
 
 from app.services.llm_provider import llm_manager, LLMResponse
 from app.services.crypto_data_service import crypto_service
+from app.services.session_service import session_service
+from app.models.llm_models import FinancialAnalysisResponse
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +25,8 @@ class ChatRequest(BaseModel):
     conversation_history: Optional[List[Dict[str, str]]] = []
     analysis_mode: Optional[str] = "simple"  # "simple" or "deep"
     context: Optional[Dict[str, Any]] = None  # Additional context like news articles
+    expect_json: Optional[bool] = False
+    session_id: Optional[str] = None
 
 class DocumentAnalysisRequest(BaseModel):
     documents: List[str]
@@ -31,13 +36,22 @@ class ProviderSwitchRequest(BaseModel):
     provider: str  # "gemini", "ollama", "local"
 
 @router.post("/chat")
-async def chat_with_ai(request: ChatRequest) -> JSONResponse:
+async def chat_with_ai(
+    request: ChatRequest,
+    x_user_id: Optional[str] = Header(None, alias="X-User-ID")
+) -> JSONResponse:
     """
-    AI chat interface
-    Supports conversation history and context
+    AI chat interface with enhanced features
+    - Session management for consistent responses
+    - Structured JSON output option
+    - Real-time data injection
     """
     try:
         logger.info(f"AI chat request: {request.message[:50]}... Mode: {request.analysis_mode}")
+        
+        # Generate session ID if not provided
+        if not request.session_id:
+            request.session_id = str(uuid.uuid4())
         
         # Check if crypto data is needed
         crypto_keywords = ["crypto", "bitcoin", "btc", "ethereum", "eth", "cryptocurrency", "fear greed"]
@@ -72,78 +86,53 @@ async def chat_with_ai(request: ChatRequest) -> JSONResponse:
             except Exception as e:
                 logger.error(f"Failed to fetch crypto data: {e}")
         
-        # Extract user risk profile if provided
-        user_risk_profile = "medium"  # default
-        if request.context and isinstance(request.context, dict):
-            user_risk_profile = request.context.get('user_risk_profile', 'medium')
+        # Build full prompt with crypto data
+        full_message = request.message
+        if crypto_context:
+            full_message = f"{crypto_context}\nUser Query: {request.message}"
         
-        # Build prompt based on analysis mode
-        if request.analysis_mode == "deep":
-            prompt = f"""You are a senior financial analyst providing COMPREHENSIVE, DETAILED analysis.
-USER RISK PROFILE: {user_risk_profile}
-{crypto_context}
-USER QUERY: {request.message}
-
-REQUIREMENTS:
-- Provide IN-DEPTH analysis with specific data points
-- Include technical analysis where relevant
-- Consider multiple perspectives and scenarios
-- Provide detailed risk assessment based on user's {user_risk_profile} risk profile
-- Suggest specific HSBC products or services where applicable
-- Include actionable recommendations with priorities
-- Use professional financial terminology
-
-Structure your response with clear sections."""
-        else:
-            # Simple mode - concise response
-            prompt = f"""You are a professional financial advisor providing QUICK, CONCISE insights.
-USER RISK PROFILE: {user_risk_profile}
-{crypto_context}
-USER QUERY: {request.message}
-
-REQUIREMENTS:
-- Provide a BRIEF response (2-3 paragraphs maximum)
-- Focus on KEY POINTS only
-- Use bullet points for clarity
-- Consider user's {user_risk_profile} risk tolerance
-- Include a one-line actionable recommendation
-
-Keep it SHORT and ACTIONABLE."""
+        # Determine if we should use a specific template
+        template_name = None
+        if request.expect_json:
+            template_name = "financial_analysis_json"
         
-        # Add context if provided (e.g., news articles)
-        if request.context:
-            if request.context.get('news_articles'):
-                articles_info = "\n".join([
-                    f"- {article.get('title', 'No title')}"
-                    for article in request.context['news_articles']
-                ])
-                prompt += f"\n\nNEWS CONTEXT:\n{articles_info}"
+        # Call LLM with enhanced features
+        response = await llm_manager.chat(
+            prompt=full_message,
+            context_id=request.context_id,
+            session_id=request.session_id,
+            user_id=x_user_id,
+            expect_json=request.expect_json,
+            template_name=template_name
+        )
         
-        # Add conversation history
-        if request.conversation_history:
-            history_text = "\n".join([
-                f"User: {item['user']}\nAI: {item['assistant']}" 
-                for item in request.conversation_history[-3:]  # Keep only last 3 conversations
-            ])
-            prompt = f"Conversation History:\n{history_text}\n\n{prompt}"
-        
-        # Call LLM
-        response = await llm_manager.chat(prompt, request.context_id)
-        
-        # Add suggestion for deep analysis if in simple mode
-        if request.analysis_mode == "simple":
-            response.content += "\n\n💡 **Want deeper insights?** Click 'Deep Analysis' for comprehensive market analysis with source verification."
-        
-        return JSONResponse({
+        # Build response
+        result = {
             "success": True,
             "response": response.content,
             "provider": response.provider,
             "model": response.model,
             "context_id": response.context_id,
+            "session_id": response.session_id,
             "tokens_used": response.tokens_used,
             "cost_estimate": response.cost_estimate,
             "analysis_mode": request.analysis_mode
-        })
+        }
+        
+        # Add structured data if available
+        if response.structured_response:
+            result["structured_data"] = response.structured_response
+        
+        # Add session summary
+        if response.session_id:
+            session_summary = await session_service.get_session_summary(response.session_id)
+            result["session_info"] = session_summary
+        
+        # Add suggestion for deep analysis if in simple mode
+        if request.analysis_mode == "simple" and not request.expect_json:
+            result["response"] += "\n\n💡 **Want deeper insights?** Click 'Deep Analysis' for comprehensive market analysis with source verification."
+        
+        return JSONResponse(result)
         
     except Exception as e:
         logger.error(f"Chat error: {e}")
@@ -257,40 +246,54 @@ async def switch_provider(request: ProviderSwitchRequest) -> JSONResponse:
 async def financial_analysis(
     symbol: str,
     analysis_type: str = "technical",  # technical, fundamental, risk
-    timeframe: str = "1d"  # 1d, 1w, 1m, 3m
+    timeframe: str = "1d",  # 1d, 1w, 1m, 3m
+    session_id: Optional[str] = None,
+    x_user_id: Optional[str] = Header(None, alias="X-User-ID")
 ) -> JSONResponse:
     """
     Professional financial analysis interface
-    Smart analysis based on stock data
+    Returns structured JSON analysis
     """
     try:
+        # Generate session ID if not provided
+        if not session_id:
+            session_id = str(uuid.uuid4())
+        
         # Build financial analysis prompt
         prompt = f"""
-As a professional financial analyst, please analyze stock {symbol}:
+Analyze stock {symbol} with the following parameters:
 
 Analysis Type: {analysis_type}
 Time Frame: {timeframe}
 
-Please provide analysis on the following aspects:
-1. Current market performance
+Provide a structured financial analysis including:
+1. Current market performance with data sources
 2. Technical indicator analysis
-3. Risk assessment
-4. Investment recommendations
-5. HSBC related product recommendations
+3. Risk assessment based on user's profile
+4. Investment recommendations with specific percentages
+5. Relevant HSBC product recommendation
 
-Please respond in professional but understandable language.
+Return as structured JSON.
 """
         
-        response = await llm_manager.chat(prompt)
+        # Use JSON template for structured response
+        response = await llm_manager.chat(
+            prompt=prompt,
+            session_id=session_id,
+            user_id=x_user_id,
+            expect_json=True,
+            template_name="financial_analysis_json"
+        )
         
         return JSONResponse({
             "success": True,
             "symbol": symbol,
             "analysis_type": analysis_type,
             "timeframe": timeframe,
-            "analysis": response.content,
+            "analysis": response.structured_response or response.content,
             "provider": response.provider,
             "model": response.model,
+            "session_id": session_id,
             "tokens_used": response.tokens_used,
             "cost_estimate": response.cost_estimate
         })
@@ -298,6 +301,36 @@ Please respond in professional but understandable language.
     except Exception as e:
         logger.error(f"Financial analysis error: {e}")
         raise HTTPException(status_code=500, detail=f"Financial analysis error: {str(e)}")
+
+@router.get("/session/{session_id}")
+async def get_session_info(session_id: str) -> JSONResponse:
+    """
+    Get session information and history
+    """
+    try:
+        summary = await session_service.get_session_summary(session_id)
+        return JSONResponse({
+            "success": True,
+            "session": summary
+        })
+    except Exception as e:
+        logger.error(f"Session info error: {e}")
+        raise HTTPException(status_code=500, detail=f"Session info error: {str(e)}")
+
+@router.delete("/session/{session_id}")
+async def clear_session(session_id: str) -> JSONResponse:
+    """
+    Clear session data
+    """
+    try:
+        await session_service.clear_session(session_id)
+        return JSONResponse({
+            "success": True,
+            "message": f"Session {session_id} cleared"
+        })
+    except Exception as e:
+        logger.error(f"Session clear error: {e}")
+        raise HTTPException(status_code=500, detail=f"Session clear error: {str(e)}")
 
 @router.get("/health")
 async def ai_health_check() -> JSONResponse:

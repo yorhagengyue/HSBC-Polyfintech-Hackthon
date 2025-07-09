@@ -16,10 +16,16 @@ import json
 from typing import List
 from datetime import datetime
 
-from app.api import health, monitoring, stocks, advanced_stocks, news, preferences, watchlist, banking, ai_chat, crypto, ai_template
+from app.api import health, monitoring, stocks, advanced_stocks, news, preferences, watchlist, banking, ai_chat, crypto, ai_template, cost_monitoring
 from app.core.config import settings
 from app.core.database import close_db
 from app.core.init_db import init_database
+
+# Import session service
+from app.services.session_service import session_service
+
+# Initialize database
+init_database()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -54,17 +60,18 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(health.router, prefix="/api/v1", tags=["health"])
-app.include_router(monitoring.router, prefix="/api/v1", tags=["monitoring"])
-app.include_router(stocks.router, prefix="/api/v1", tags=["stocks"])
-app.include_router(advanced_stocks.router, prefix="/api/v1/advanced", tags=["advanced-stocks"])
-app.include_router(news.router, prefix="/api/v1", tags=["news"])
-app.include_router(preferences.router, prefix="/api/v1", tags=["preferences"])
-app.include_router(watchlist.router, prefix="/api/v1", tags=["watchlist"])
-app.include_router(banking.router, prefix="/api/v1", tags=["banking"])
-app.include_router(ai_chat.router, prefix="/api/v1/ai", tags=["ai-chat"])
-app.include_router(crypto.router, prefix="/api/v1", tags=["crypto"])
-app.include_router(ai_template.router, prefix="/api/v1/ai/template", tags=["ai-template"])
+app.include_router(health.router, prefix="/api/v1/health", tags=["health"])
+app.include_router(monitoring.router, prefix="/api/v1/monitoring", tags=["monitoring"])
+app.include_router(stocks.router, prefix="/api/v1/stocks", tags=["stocks"])
+app.include_router(advanced_stocks.router, prefix="/api/v1/advanced", tags=["advanced"])
+app.include_router(news.router, prefix="/api/v1/news", tags=["news"])
+app.include_router(preferences.router, prefix="/api/v1/preferences", tags=["preferences"])
+app.include_router(watchlist.router, prefix="/api/v1/watchlist", tags=["watchlist"])
+app.include_router(banking.router, prefix="/api/v1/banking", tags=["banking"])
+app.include_router(ai_chat.router, prefix="/api/v1/ai", tags=["ai"])
+app.include_router(crypto.router, prefix="/api/v1/crypto", tags=["crypto"])
+app.include_router(ai_template.router, prefix="/api/v1/ai/template", tags=["ai_template"])
+app.include_router(cost_monitoring.router, prefix="/api/v1/cost", tags=["cost"])
 
 # WebSocket manager
 class ConnectionManager:
@@ -90,6 +97,30 @@ class ConnectionManager:
                 pass
 
 manager = ConnectionManager()
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    # Initialize session service
+    await session_service.connect()
+    print("Session service initialized")
+    
+    # Initialize Yahoo Finance service with fallback
+    from app.services.yahoo_finance import yahoo_finance_service
+    yahoo_finance_service.initialize()
+    print("Yahoo Finance service with fallback initialized")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    # Disconnect session service
+    await session_service.disconnect()
+    print("Session service disconnected")
+    
+    # Save Yahoo Finance cache
+    from app.services.yahoo_finance import yahoo_finance_service
+    yahoo_finance_service.cleanup()
+    print("Yahoo Finance cache saved")
 
 @app.get("/")
 async def root():

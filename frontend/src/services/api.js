@@ -1,33 +1,69 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 // Create axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-    'X-User-ID': 'demo_user', // Simple user auth for demo
   },
+  timeout: 30000, // 30 second timeout
 });
+
+// Simple request throttling for stock APIs
+const requestQueue = new Map();
+const REQUEST_DELAY = 1000; // 1 second between similar requests
+
+const throttleRequest = async (key, requestFn) => {
+  // Check if we have a pending request for this key
+  if (requestQueue.has(key)) {
+    console.log(`Request for ${key} already pending, returning cached promise`);
+    return requestQueue.get(key);
+  }
+  
+  // Create the request promise
+  const requestPromise = requestFn().finally(() => {
+    // Clean up after delay
+    setTimeout(() => {
+      requestQueue.delete(key);
+    }, REQUEST_DELAY);
+  });
+  
+  // Store the promise
+  requestQueue.set(key, requestPromise);
+  
+  return requestPromise;
+};
 
 // Stock APIs
 export const stockAPI = {
-  getStockInfo: (symbol) => api.get(`/stock/${symbol}`),
-  getRealtimePrice: (symbol) => api.get(`/stock/${symbol}/price`),
+  getStockInfo: (symbol) => api.get(`/stocks/stock/${symbol}`),
+  getRealtimePrice: (symbol) => api.get(`/stocks/stock/${symbol}/price`),
   getStockHistory: (symbol, period = '1mo', interval = '1d') => 
-    api.get(`/stock/${symbol}/history?period=${period}&interval=${interval}`),
-  getIndexPrices: () => api.get('/index-prices'),
+    api.get(`/stocks/stock/${symbol}/history?period=${period}&interval=${interval}`),
+  
+  // Throttled getIndexPrices
+  getIndexPrices: () => {
+    return throttleRequest('index-prices', () => 
+      api.get('/stocks/index-prices')
+    );
+  },
   
   // New search and user stock APIs
-  searchStocks: (query) => api.get(`/search?query=${encodeURIComponent(query)}`),
-  getUserStocks: (symbols) => api.get(`/user-stocks?symbols=${encodeURIComponent(symbols)}`),
+  searchStocks: (query) => api.get(`/stocks/search?query=${encodeURIComponent(query)}`),
+  getUserStocks: (symbols) => {
+    const key = `user-stocks-${symbols}`;
+    return throttleRequest(key, () => 
+      api.get(`/stocks/user-stocks?symbols=${encodeURIComponent(symbols)}`)
+    );
+  },
   
   // Monitoring
-  startMonitoring: (data) => api.post('/monitoring/start', data),
-  stopMonitoring: (symbol) => api.delete(`/monitoring/stop/${symbol}`),
-  getMonitoringStatus: () => api.get('/monitoring/status'),
-  getCachedPrice: (symbol) => api.get(`/monitoring/cache/${symbol}`),
+  startMonitoring: (data) => api.post('/stocks/monitoring/start', data),
+  stopMonitoring: (symbol) => api.delete(`/stocks/monitoring/stop/${symbol}`),
+  getMonitoringStatus: () => api.get('/stocks/monitoring/status'),
+  getCachedPrice: (symbol) => api.get(`/stocks/monitoring/cache/${symbol}`),
   
   // News APIs
   getMarketNews: (category = 'business') => api.get(`/news/market?category=${category}`),
